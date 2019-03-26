@@ -583,6 +583,11 @@ when :attr:`~django.forms.Field.localize` is ``False`` or
     :class:`FloatField` and :class:`DecimalField` classes, please
     see :ref:`FloatField vs. DecimalField <floatfield_vs_decimalfield>`.
 
+.. note::
+
+    Due to how Python constructs :class:`~decimal.Decimal` objects,
+    it is better to pass the desired value as a string to preserve accuracy.
+
 ``DurationField``
 -----------------
 
