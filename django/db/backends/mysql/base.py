@@ -118,6 +118,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'BigIntegerField': 'bigint',
         'IPAddressField': 'char(15)',
         'GenericIPAddressField': 'char(39)',
+        'JSONField': 'json',
         'NullBooleanField': 'bool',
         'OneToOneField': 'integer',
         'PositiveIntegerField': 'integer UNSIGNED',
@@ -128,6 +129,9 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'TextField': 'longtext',
         'TimeField': 'time(6)',
         'UUIDField': 'char(32)',
+    }
+    data_type_check_constraints = {
+        'JSONField': 'JSON_VALID(%(qn_column)s)',
     }
 
     # For these data types:

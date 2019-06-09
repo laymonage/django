@@ -1,4 +1,7 @@
+from django.db import transaction
 from django.db.backends.base.features import BaseDatabaseFeatures
+from django.db.utils import OperationalError
+from django.utils.functional import cached_property
 
 from .base import Database
 
@@ -42,3 +45,13 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     can_defer_constraint_checks = supports_pragma_foreign_key_check
     supports_functions_in_partial_indexes = Database.sqlite_version_info >= (3, 15, 0)
     supports_over_clause = Database.sqlite_version_info >= (3, 25, 0)
+
+    @cached_property
+    def supports_json(self):
+        try:
+            with self.connection.cursor() as cursor, transaction.atomic():
+                cursor.execute("SELECT JSON('\"test\"')")
+        except OperationalError:
+            return False
+        else:
+            return True

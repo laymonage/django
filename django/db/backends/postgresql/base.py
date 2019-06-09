@@ -87,6 +87,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'BigIntegerField': 'bigint',
         'IPAddressField': 'inet',
         'GenericIPAddressField': 'inet',
+        'JSONField': 'jsonb',
         'NullBooleanField': 'boolean',
         'OneToOneField': 'integer',
         'PositiveIntegerField': 'integer',

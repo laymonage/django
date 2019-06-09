@@ -118,6 +118,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'BigIntegerField': 'NUMBER(19)',
         'IPAddressField': 'VARCHAR2(15)',
         'GenericIPAddressField': 'VARCHAR2(39)',
+        'JSONField': 'CLOB',
         'NullBooleanField': 'NUMBER(1)',
         'OneToOneField': 'NUMBER(11)',
         'PositiveIntegerField': 'NUMBER(11)',
@@ -132,6 +133,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     }
     data_type_check_constraints = {
         'BooleanField': '%(qn_column)s IN (0,1)',
+        'JSONField': '%(qn_column)s IS JSON',
         'NullBooleanField': '%(qn_column)s IN (0,1)',
         'PositiveIntegerField': '%(qn_column)s >= 0',
         'PositiveSmallIntegerField': '%(qn_column)s >= 0',
