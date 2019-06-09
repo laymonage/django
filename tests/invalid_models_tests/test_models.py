@@ -5,7 +5,7 @@ from django.core.checks.model_checks import _check_lazy_references
 from django.db import connection, connections, models
 from django.db.models.functions import Lower
 from django.db.models.signals import post_init
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
 from django.test.utils import isolate_apps, override_settings, register_lookup
 
 
@@ -1347,6 +1347,19 @@ class OtherModelTests(SimpleTestCase):
                 id='signals.E001',
             ),
         ])
+
+
+@isolate_apps('invalid_models_tests')
+class JSONFieldTests(TestCase):
+    @skipUnlessDBFeature('supports_json_field')
+    def test_ordering_pointing_to_json_field_value(self):
+        class Model(models.Model):
+            field = models.JSONField()
+
+            class Meta:
+                ordering = ['field__value']
+
+        self.assertEqual(Model.check(databases=self.databases), [])
 
 
 @isolate_apps('invalid_models_tests')

@@ -332,6 +332,20 @@ if Image:
                                   width_field='headshot_width')
 
 
+class JSONModel(models.Model):
+    value = models.JSONField()
+
+    class Meta:
+        required_db_features = {'supports_json_field'}
+
+
+class NullableJSONModel(models.Model):
+    value = models.JSONField(blank=True, null=True)
+
+    class Meta:
+        required_db_features = {'supports_json_field'}
+
+
 class AllFieldsModel(models.Model):
     big_integer = models.BigIntegerField()
     binary = models.BinaryField()
