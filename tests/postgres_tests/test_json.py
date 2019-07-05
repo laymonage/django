@@ -1,16 +1,16 @@
 import datetime
 import operator
 
-from django.core import checks, exceptions, serializers
+from django.core import exceptions, serializers
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection
 from django.db.models import Count, F, Q
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Cast
-from django.test.utils import CaptureQueriesContext, isolate_apps
+from django.test.utils import CaptureQueriesContext
 
 from . import PostgreSQLSimpleTestCase, PostgreSQLTestCase
-from .models import JSONModel, PostgreSQLModel
+from .models import JSONModel
 
 try:
     from django.contrib.postgres.fields import JSONField
@@ -292,42 +292,6 @@ class TestQuerying(PostgreSQLTestCase):
             """."field" -> 'test'' = ''"a"'') OR 1 = 1 OR (''d') = '"x"' """,
             queries[0]['sql'],
         )
-
-
-@isolate_apps('postgres_tests')
-class TestChecks(PostgreSQLSimpleTestCase):
-
-    def test_invalid_default(self):
-        class MyModel(PostgreSQLModel):
-            field = JSONField(default={})
-
-        model = MyModel()
-        self.assertEqual(model.check(), [
-            checks.Warning(
-                msg=(
-                    "JSONField default should be a callable instead of an "
-                    "instance so that it's not shared between all field "
-                    "instances."
-                ),
-                hint='Use a callable instead, e.g., use `dict` instead of `{}`.',
-                obj=MyModel._meta.get_field('field'),
-                id='postgres.E003',
-            )
-        ])
-
-    def test_valid_default(self):
-        class MyModel(PostgreSQLModel):
-            field = JSONField(default=dict)
-
-        model = MyModel()
-        self.assertEqual(model.check(), [])
-
-    def test_valid_default_none(self):
-        class MyModel(PostgreSQLModel):
-            field = JSONField(default=None)
-
-        model = MyModel()
-        self.assertEqual(model.check(), [])
 
 
 class TestSerialization(PostgreSQLSimpleTestCase):
