@@ -335,6 +335,15 @@ class JSONModel(models.Model):
     value = models.JSONField()
 
 
+class NullableJSONModel(models.Model):
+    value = models.JSONField(blank=True, null=True)
+
+
+class OrderedJSONModel(JSONModel):
+    class Meta:
+        ordering = ['value']
+
+
 class AllFieldsModel(models.Model):
     big_integer = models.BigIntegerField()
     binary = models.BinaryField()
