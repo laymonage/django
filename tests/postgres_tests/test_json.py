@@ -1,7 +1,5 @@
 import datetime
 import operator
-import uuid
-from decimal import Decimal
 
 from django.core import checks, exceptions, serializers
 from django.core.serializers.json import DjangoJSONEncoder
@@ -9,101 +7,16 @@ from django.db import connection
 from django.db.models import Count, F, Q
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Cast
-from django.forms import CharField, Form, widgets
 from django.test.utils import CaptureQueriesContext, isolate_apps
-from django.utils.html import escape
 
 from . import PostgreSQLSimpleTestCase, PostgreSQLTestCase
 from .models import JSONModel, PostgreSQLModel
 
 try:
-    from django.contrib.postgres import forms
     from django.contrib.postgres.fields import JSONField
     from django.contrib.postgres.fields.jsonb import KeyTextTransform, KeyTransform
 except ImportError:
     pass
-
-
-class TestModelMetaOrdering(PostgreSQLSimpleTestCase):
-    def test_ordering_by_json_field_value(self):
-        class TestJSONModel(JSONModel):
-            class Meta:
-                ordering = ['field__value']
-
-        self.assertEqual(TestJSONModel.check(), [])
-
-
-class TestSaveLoad(PostgreSQLTestCase):
-    def test_null(self):
-        instance = JSONModel()
-        instance.save()
-        loaded = JSONModel.objects.get()
-        self.assertIsNone(loaded.field)
-
-    def test_empty_object(self):
-        instance = JSONModel(field={})
-        instance.save()
-        loaded = JSONModel.objects.get()
-        self.assertEqual(loaded.field, {})
-
-    def test_empty_list(self):
-        instance = JSONModel(field=[])
-        instance.save()
-        loaded = JSONModel.objects.get()
-        self.assertEqual(loaded.field, [])
-
-    def test_boolean(self):
-        instance = JSONModel(field=True)
-        instance.save()
-        loaded = JSONModel.objects.get()
-        self.assertIs(loaded.field, True)
-
-    def test_string(self):
-        instance = JSONModel(field='why?')
-        instance.save()
-        loaded = JSONModel.objects.get()
-        self.assertEqual(loaded.field, 'why?')
-
-    def test_number(self):
-        instance = JSONModel(field=1)
-        instance.save()
-        loaded = JSONModel.objects.get()
-        self.assertEqual(loaded.field, 1)
-
-    def test_realistic_object(self):
-        obj = {
-            'a': 'b',
-            'c': 1,
-            'd': ['e', {'f': 'g'}],
-            'h': True,
-            'i': False,
-            'j': None,
-        }
-        instance = JSONModel(field=obj)
-        instance.save()
-        loaded = JSONModel.objects.get()
-        self.assertEqual(loaded.field, obj)
-
-    def test_custom_encoding(self):
-        """
-        JSONModel.field_custom has a custom DjangoJSONEncoder.
-        """
-        some_uuid = uuid.uuid4()
-        obj_before = {
-            'date': datetime.date(2016, 8, 12),
-            'datetime': datetime.datetime(2016, 8, 12, 13, 44, 47, 575981),
-            'decimal': Decimal('10.54'),
-            'uuid': some_uuid,
-        }
-        obj_after = {
-            'date': '2016-08-12',
-            'datetime': '2016-08-12T13:44:47.575',
-            'decimal': '10.54',
-            'uuid': str(some_uuid),
-        }
-        JSONModel.objects.create(field_custom=obj_before)
-        loaded = JSONModel.objects.get()
-        self.assertEqual(loaded.field_custom, obj_after)
 
 
 class TestQuerying(PostgreSQLTestCase):
@@ -457,92 +370,3 @@ class TestValidation(PostgreSQLSimpleTestCase):
             field = JSONField(encoder=DjangoJSONEncoder())
         field = JSONField(encoder=DjangoJSONEncoder)
         self.assertEqual(field.clean(datetime.timedelta(days=1), None), datetime.timedelta(days=1))
-
-
-class TestFormField(PostgreSQLSimpleTestCase):
-
-    def test_valid(self):
-        field = forms.JSONField()
-        value = field.clean('{"a": "b"}')
-        self.assertEqual(value, {'a': 'b'})
-
-    def test_valid_empty(self):
-        field = forms.JSONField(required=False)
-        value = field.clean('')
-        self.assertIsNone(value)
-
-    def test_invalid(self):
-        field = forms.JSONField()
-        with self.assertRaises(exceptions.ValidationError) as cm:
-            field.clean('{some badly formed: json}')
-        self.assertEqual(cm.exception.messages[0], '“{some badly formed: json}” value must be valid JSON.')
-
-    def test_formfield(self):
-        model_field = JSONField()
-        form_field = model_field.formfield()
-        self.assertIsInstance(form_field, forms.JSONField)
-
-    def test_formfield_disabled(self):
-        class JsonForm(Form):
-            name = CharField()
-            jfield = forms.JSONField(disabled=True)
-
-        form = JsonForm({'name': 'xyz', 'jfield': '["bar"]'}, initial={'jfield': ['foo']})
-        self.assertIn('[&quot;foo&quot;]</textarea>', form.as_p())
-
-    def test_prepare_value(self):
-        field = forms.JSONField()
-        self.assertEqual(field.prepare_value({'a': 'b'}), '{"a": "b"}')
-        self.assertEqual(field.prepare_value(None), 'null')
-        self.assertEqual(field.prepare_value('foo'), '"foo"')
-
-    def test_redisplay_wrong_input(self):
-        """
-        When displaying a bound form (typically due to invalid input), the form
-        should not overquote JSONField inputs.
-        """
-        class JsonForm(Form):
-            name = CharField(max_length=2)
-            jfield = forms.JSONField()
-
-        # JSONField input is fine, name is too long
-        form = JsonForm({'name': 'xyz', 'jfield': '["foo"]'})
-        self.assertIn('[&quot;foo&quot;]</textarea>', form.as_p())
-
-        # This time, the JSONField input is wrong
-        form = JsonForm({'name': 'xy', 'jfield': '{"foo"}'})
-        # Appears once in the textarea and once in the error message
-        self.assertEqual(form.as_p().count(escape('{"foo"}')), 2)
-
-    def test_widget(self):
-        """The default widget of a JSONField is a Textarea."""
-        field = forms.JSONField()
-        self.assertIsInstance(field.widget, widgets.Textarea)
-
-    def test_custom_widget_kwarg(self):
-        """The widget can be overridden with a kwarg."""
-        field = forms.JSONField(widget=widgets.Input)
-        self.assertIsInstance(field.widget, widgets.Input)
-
-    def test_custom_widget_attribute(self):
-        """The widget can be overridden with an attribute."""
-        class CustomJSONField(forms.JSONField):
-            widget = widgets.Input
-
-        field = CustomJSONField()
-        self.assertIsInstance(field.widget, widgets.Input)
-
-    def test_already_converted_value(self):
-        field = forms.JSONField(required=False)
-        tests = [
-            '["a", "b", "c"]', '{"a": 1, "b": 2}', '1', '1.5', '"foo"',
-            'true', 'false', 'null',
-        ]
-        for json_string in tests:
-            val = field.clean(json_string)
-            self.assertEqual(field.clean(val), val)
-
-    def test_has_changed(self):
-        field = forms.JSONField()
-        self.assertIs(field.has_changed({'a': True}, '{"a": 1}'), True)
-        self.assertIs(field.has_changed({'a': 1, 'b': 2}, '{"b": 2, "a": 1}'), False)
