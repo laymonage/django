@@ -36,6 +36,8 @@ class JSONField(CheckFieldDefaultMixin, Field):
     def from_db_value(self, value, expression, connection):
         if value is None:
             return value
+        if connection.vendor == 'oracle' and value == '':
+            return None
         return json.loads(value, cls=self.decoder)
 
     def get_internal_type(self):
