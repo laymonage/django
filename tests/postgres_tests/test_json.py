@@ -182,24 +182,6 @@ class TestQuerying(PostgreSQLTestCase):
             [self.objs[6], self.objs[7]]
         )
 
-    def test_has_key(self):
-        self.assertSequenceEqual(
-            JSONModel.objects.filter(field__has_key='a'),
-            [self.objs[7], self.objs[8]]
-        )
-
-    def test_has_keys(self):
-        self.assertSequenceEqual(
-            JSONModel.objects.filter(field__has_keys=['a', 'c', 'h']),
-            [self.objs[8]]
-        )
-
-    def test_has_any_keys(self):
-        self.assertSequenceEqual(
-            JSONModel.objects.filter(field__has_any_keys=['c', 'l']),
-            [self.objs[7], self.objs[8], self.objs[10]]
-        )
-
     def test_shallow_list_lookup(self):
         self.assertSequenceEqual(
             JSONModel.objects.filter(field__0=1),
