@@ -213,3 +213,53 @@ class TestSaveLoad(TestCase):
         obj = JSONModel.objects.create(value=value)
         obj = JSONModel.objects.get(id=obj.id)
         self.assertEqual(obj.value, value)
+
+
+class TestQuerying(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        scalar_values = [None] if connection.vendor == 'oracle' else [
+            None, True, False, 'yes', 7,
+        ]
+        object_values = [
+            [], {},
+            {'a': 'b', 'c': 1},
+            {
+                'a': 'b',
+                'c': 1,
+                'd': ['e', {'f': 'g'}],
+                'h': True,
+                'i': False,
+                'j': None,
+                'k': {'l': 'm'},
+            },
+            [1, [2]],
+            {'k': True, 'l': False},
+            {'foo': 'bar'},
+        ]
+        cls.scalar_data = [
+            NullableJSONModel.objects.create(value=value)
+            for value in scalar_values
+        ]
+        cls.object_data = [
+            NullableJSONModel.objects.create(value=value)
+            for value in object_values
+        ]
+
+    def test_has_key(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__has_key='a'),
+            [self.object_data[2], self.object_data[3]]
+        )
+
+    def test_has_keys(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__has_keys=['a', 'c', 'h']),
+            [self.object_data[3]]
+        )
+
+    def test_has_any_keys(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__has_any_keys=['c', 'l']),
+            [self.object_data[2], self.object_data[3], self.object_data[5]]
+        )

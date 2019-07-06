@@ -3,6 +3,7 @@ import json
 from django import forms
 from django.core import exceptions
 from django.db import connection as builtin_connection
+from django.db.models.lookups import FieldGetDbPrepValueMixin, Lookup
 from django.db.utils import NotSupportedError
 from django.utils.translation import gettext_lazy as _
 
@@ -75,3 +76,97 @@ class JSONField(CheckFieldDefaultMixin, Field):
             'decoder': self.decoder,
             **kwargs,
         })
+
+
+class JSONLookup(FieldGetDbPrepValueMixin, Lookup):
+    def as_postgresql(self, qn, connection):
+        lhs, lhs_params = self.process_lhs(qn, connection)
+        rhs, rhs_params = self.process_rhs(qn, connection)
+        params = lhs_params + rhs_params
+        return '%s %s %s' % (lhs, self.postgresql_operator, rhs), params
+
+
+@JSONField.register_lookup
+class HasKey(JSONLookup):
+    lookup_name = 'has_key'
+    postgresql_operator = '?'
+    prepare_rhs = False
+
+    def _process_lhs_params(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        key_name = self.rhs
+        path = '$.{}'.format(json.dumps(key_name))
+        return lhs, lhs_params, path
+
+    def as_mysql(self, compiler, connection):
+        lhs, lhs_params, path = self._process_lhs_params(compiler, connection)
+        return "JSON_CONTAINS_PATH({}, 'one', %s)".format(lhs), lhs_params + [path]
+
+    def as_oracle(self, compiler, connection):
+        lhs, lhs_params, path = self._process_lhs_params(compiler, connection)
+        return "JSON_EXISTS({}, '%s')".format(lhs), lhs_params + [path]
+
+    def as_sqlite(self, compiler, connection):
+        lhs, lhs_params, path = self._process_lhs_params(compiler, connection)
+        return "JSON_TYPE({}, %s) IS NOT NULL".format(lhs), lhs_params + [path]
+
+
+@JSONField.register_lookup
+class HasKeys(JSONLookup):
+    lookup_name = 'has_keys'
+    postgresql_operator = '?&'
+
+    def get_prep_lookup(self):
+        return [str(item) for item in self.rhs]
+
+    def _process_lhs_params_paths(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        paths = [
+            '$.{}'.format(json.dumps(key_name))
+            for key_name in self.rhs
+        ]
+        return lhs, lhs_params, paths
+
+    def as_mysql(self, compiler, connection):
+        lhs, lhs_params, paths = self._process_lhs_params_paths(compiler, connection)
+
+        sql = "JSON_CONTAINS_PATH({}, 'all', {})".format(lhs, ', '.join('%s' for _ in paths))
+        return sql, lhs_params + [paths]
+
+    def as_oracle(self, compiler, connection):
+        lhs, params, paths = self._process_lhs_params_paths(compiler, connection)
+
+        sql = ("JSON_EXISTS({}, %s)".format(lhs) for _ in paths)
+        return ' AND '.join(sql), params
+
+    def as_sqlite(self, compiler, connection):
+        lhs, params, paths = self._process_lhs_params_paths(compiler, connection)
+
+        sql = ("JSON_TYPE({}, %s) IS NOT NULL".format(lhs) for _ in paths)
+        return ' AND '.join(sql), params
+
+
+@JSONField.register_lookup
+class HasAnyKeys(HasKeys):
+    lookup_name = 'has_any_keys'
+    postgresql_operator = '?|'
+
+    def as_mysql(self, compiler, connection):
+        lhs, params, paths = self._process_lhs_params_paths(compiler, connection)
+
+        sql = ['JSON_CONTAINS_PATH(', lhs, ", 'one', "]
+        sql.append(', '.join('%s' for _ in paths))
+        sql.append(')')
+        return ''.join(sql), params
+
+    def as_oracle(self, compiler, connection):
+        lhs, params, paths = self._process_lhs_params_paths(compiler, connection)
+
+        sql = ("JSON_EXISTS({}, %s)".format(lhs) for _ in paths)
+        return '({})'.format(' OR '.join(sql)), params
+
+    def as_sqlite(self, compiler, connection):
+        lhs, params, paths = self._process_lhs_params_paths(compiler, connection)
+
+        sql = ("JSON_TYPE({}, %s) IS NOT NULL".format(lhs) for _ in paths)
+        return '({})'.format(' OR '.join(sql)), params
