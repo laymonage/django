@@ -99,16 +99,17 @@ class HasKey(JSONLookup):
         return lhs, lhs_params, paths
 
     def as_mysql(self, compiler, connection):
-        lhs, lhs_params, path = self._process_lhs_params(compiler, connection)
-        return "JSON_CONTAINS_PATH({}, 'one', %s)".format(lhs), lhs_params + path
+        lhs, lhs_params, paths = self._process_lhs_params(compiler, connection)
+        return "JSON_CONTAINS_PATH({}, 'one', %s)".format(lhs), lhs_params + paths
 
     def as_oracle(self, compiler, connection):
-        lhs, lhs_params, path = self._process_lhs_params(compiler, connection)
-        return "JSON_EXISTS({}, '%s')".format(lhs), lhs_params + path
+        lhs, lhs_params, paths = self._process_lhs_params(compiler, connection)
+        sql = ("JSON_EXISTS({}, '{}')".format(lhs, path) for path in paths)
+        return ''.join(sql), lhs_params
 
     def as_sqlite(self, compiler, connection):
-        lhs, lhs_params, path = self._process_lhs_params(compiler, connection)
-        return "JSON_TYPE({}, %s) IS NOT NULL".format(lhs), lhs_params + path
+        lhs, lhs_params, paths = self._process_lhs_params(compiler, connection)
+        return "JSON_TYPE({}, %s) IS NOT NULL".format(lhs), lhs_params + paths
 
 
 @JSONField.register_lookup
@@ -136,8 +137,8 @@ class HasKeys(JSONLookup):
     def as_oracle(self, compiler, connection):
         lhs, lhs_params, paths = self._process_lhs_params(compiler, connection)
 
-        sql = ("JSON_EXISTS({}, '%s')".format(lhs) for _ in paths)
-        return ' AND '.join(sql), lhs_params + paths
+        sql = ("JSON_EXISTS({}, '{}')".format(lhs, path) for path in paths)
+        return ' AND '.join(sql), lhs_params
 
     def as_sqlite(self, compiler, connection):
         lhs, lhs_params, paths = self._process_lhs_params(compiler, connection)
@@ -160,8 +161,8 @@ class HasAnyKeys(HasKeys):
     def as_oracle(self, compiler, connection):
         lhs, lhs_params, paths = self._process_lhs_params(compiler, connection)
 
-        sql = ("JSON_EXISTS({}, '%s')".format(lhs) for _ in paths)
-        return '({})'.format(' OR '.join(sql)), lhs_params + paths
+        sql = ("JSON_EXISTS({}, '{}')".format(lhs, path) for path in paths)
+        return '({})'.format(' OR '.join(sql)), lhs_params
 
     def as_sqlite(self, compiler, connection):
         lhs, lhs_params, paths = self._process_lhs_params_paths(compiler, connection)
