@@ -3,6 +3,7 @@ import uuid
 from tests.test_utils.json import CustomDecoder, StrEncoder
 
 from django import forms
+from django.core import serializers
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection, models, transaction
@@ -112,6 +113,34 @@ class TestModelFormField(TestCase):
         form_field = model_field.formfield()
         self.assertIs(form_field.encoder, DjangoJSONEncoder)
         self.assertIs(form_field.decoder, CustomDecoder)
+
+
+class TestSerialization(TestCase):
+    test_data = (
+        '[{"fields": {"value": %s}, '
+        '"model": "model_fields.jsonmodel", "pk": null}]'
+    )
+    test_values = (
+        # (Python value, serialized value),
+        ({'a': 'b', 'c': None}, '{"a": "b", "c": null}'),
+        ('abc', '"abc"'),
+        ('{"a": "a"}', '"{\\"a\\": \\"a\\"}"'),
+    )
+
+    def test_dumping(self):
+        for value, serialized in self.test_values:
+            with self.subTest(value=value):
+                instance = JSONModel(value=value)
+                data = serializers.serialize('json', [instance])
+                self.assertJSONEqual(data, self.test_data % serialized)
+
+    def test_loading(self):
+        for value, serialized in self.test_values:
+            with self.subTest(value=value):
+                instance = list(
+                    serializers.deserialize('json', self.test_data % serialized)
+                )[0].object
+                self.assertEqual(instance.value, value)
 
 
 class TestSaveLoad(TestCase):

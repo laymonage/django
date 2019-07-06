@@ -54,20 +54,6 @@ class JSONField(CheckFieldDefaultMixin, Field):
             return '%s::text' % sql, params
         return super().select_format(compiler, sql, params)
 
-    def to_python(self, value):
-        if value is None or isinstance(
-            value, (bool, int, float, dict, list)
-        ):
-            return value
-        try:
-            return json.loads(value, cls=self.decoder)
-        except TypeError:
-            raise exceptions.ValidationError(
-                self.error_messages['invalid'],
-                code='invalid',
-                params={'value': value},
-            )
-
     def validate(self, value, model_instance):
         super().validate(value, model_instance)
         try:
@@ -80,8 +66,7 @@ class JSONField(CheckFieldDefaultMixin, Field):
             )
 
     def value_to_string(self, obj):
-        value = self.value_from_object(obj)
-        return self.get_prep_value(value)
+        return self.value_from_object(obj)
 
     def formfield(self, **kwargs):
         return super().formfield(**{

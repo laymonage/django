@@ -4,10 +4,9 @@ from django.db import connection
 from django.db.models import Count, F, Q
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Cast
-from django.core import serializers
 from django.test.utils import CaptureQueriesContext
 
-from . import PostgreSQLSimpleTestCase, PostgreSQLTestCase
+from . import PostgreSQLTestCase
 from .models import JSONModel
 
 try:
@@ -289,29 +288,3 @@ class TestQuerying(PostgreSQLTestCase):
             """."field" -> 'test'' = ''"a"'') OR 1 = 1 OR (''d') = '"x"' """,
             queries[0]['sql'],
         )
-
-
-class TestSerialization(PostgreSQLSimpleTestCase):
-    test_data = (
-        '[{"fields": {"field": %s, "field_custom": null}, '
-        '"model": "postgres_tests.jsonmodel", "pk": null}]'
-    )
-    test_values = (
-        # (Python value, serialized value),
-        ({'a': 'b', 'c': None}, '{"a": "b", "c": null}'),
-        ('abc', '"abc"'),
-        ('{"a": "a"}', '"{\\"a\\": \\"a\\"}"'),
-    )
-
-    def test_dumping(self):
-        for value, serialized in self.test_values:
-            with self.subTest(value=value):
-                instance = JSONModel(field=value)
-                data = serializers.serialize('json', [instance])
-                self.assertJSONEqual(data, self.test_data % serialized)
-
-    def test_loading(self):
-        for value, serialized in self.test_values:
-            with self.subTest(value=value):
-                instance = list(serializers.deserialize('json', self.test_data % serialized))[0].object
-                self.assertEqual(instance.field, value)
