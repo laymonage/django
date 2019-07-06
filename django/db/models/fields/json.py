@@ -70,7 +70,14 @@ class JSONField(CheckFieldDefaultMixin, Field):
 
     def validate(self, value, model_instance):
         super().validate(value, model_instance)
-        self.to_python(value)
+        try:
+            json.dumps(value, cls=self.encoder)
+        except TypeError:
+            raise exceptions.ValidationError(
+                self.error_messages['invalid'],
+                code='invalid',
+                params={'value': value},
+            )
 
     def value_to_string(self, obj):
         value = self.value_from_object(obj)

@@ -3,6 +3,7 @@ import uuid
 from tests.test_utils.json import CustomDecoder, StrEncoder
 
 from django import forms
+from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection, models, transaction
 from django.db.utils import DatabaseError, IntegrityError
@@ -58,26 +59,39 @@ class TestDefaultValue(TestCase):
                 self.assertEqual(len(errors), 0)
 
 
-class TestCustomEncoderDecoder(TestCase):
+class TestValidation(TestCase):
     def _set_encoder_decoder(self, encoder, decoder):
         field = JSONModel._meta.get_field('value')
         field.encoder, field.decoder = encoder, decoder
         return field.check()
 
+    @classmethod
+    def setUpTestData(cls):
+        cls.uuid_value = {'uuid': uuid.UUID('{12345678-1234-5678-1234-567812345678}')}
+
     def tearDown(self):
         self._set_encoder_decoder(None, None)
         return super().tearDown()
 
-    def test_custom_encoder_decoder(self):
-        value = {'uuid': uuid.UUID('{12345678-1234-5678-1234-567812345678}')}
-        obj = JSONModel(value=value)
+    def test_validation_error(self):
+        field = models.JSONField()
+        with self.assertRaises(ValidationError) as err:
+            field.clean(self.uuid_value, None)
+        self.assertEqual(err.exception.code, 'invalid')
+        self.assertEqual(err.exception.message % err.exception.params, 'Value must be valid JSON.')
+
+    def test_not_serializable(self):
+        obj = JSONModel(value=self.uuid_value)
         with transaction.atomic():
             self.assertRaises(TypeError, obj.save)
 
+    def test_custom_encoder_decoder(self):
         self._set_encoder_decoder(DjangoJSONEncoder, CustomDecoder)
-        obj = JSONModel.objects.create(value=value)
+        obj = JSONModel(value=self.uuid_value)
+        obj.clean_fields()
+        obj.save()
         obj = JSONModel.objects.get(id=obj.id)
-        self.assertEqual(obj.value, value)
+        self.assertEqual(obj.value, self.uuid_value)
 
     def test_db_check_constraints(self):
         value = '{@!invalid json value 123 $!@#'

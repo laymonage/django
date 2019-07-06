@@ -1,19 +1,16 @@
-import datetime
 import operator
 
-from django.core import exceptions, serializers
-from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection
 from django.db.models import Count, F, Q
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Cast
+from django.core import serializers
 from django.test.utils import CaptureQueriesContext
 
 from . import PostgreSQLSimpleTestCase, PostgreSQLTestCase
 from .models import JSONModel
 
 try:
-    from django.contrib.postgres.fields import JSONField
     from django.contrib.postgres.fields.jsonb import KeyTextTransform, KeyTransform
 except ImportError:
     pass
@@ -318,19 +315,3 @@ class TestSerialization(PostgreSQLSimpleTestCase):
             with self.subTest(value=value):
                 instance = list(serializers.deserialize('json', self.test_data % serialized))[0].object
                 self.assertEqual(instance.field, value)
-
-
-class TestValidation(PostgreSQLSimpleTestCase):
-
-    def test_not_serializable(self):
-        field = JSONField()
-        with self.assertRaises(exceptions.ValidationError) as cm:
-            field.clean(datetime.timedelta(days=1), None)
-        self.assertEqual(cm.exception.code, 'invalid')
-        self.assertEqual(cm.exception.message % cm.exception.params, "Value must be valid JSON.")
-
-    def test_custom_encoder(self):
-        with self.assertRaisesMessage(ValueError, "The encoder parameter must be a callable object."):
-            field = JSONField(encoder=DjangoJSONEncoder())
-        field = JSONField(encoder=DjangoJSONEncoder)
-        self.assertEqual(field.clean(datetime.timedelta(days=1), None), datetime.timedelta(days=1))
