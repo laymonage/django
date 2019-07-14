@@ -78,7 +78,20 @@ class JSONField(CheckFieldDefaultMixin, Field):
         })
 
 
-class HasKeyMixin(FieldGetDbPrepValueMixin, Lookup):
+class JSONLookup(FieldGetDbPrepValueMixin, Lookup):
+    def as_postgresql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = lhs_params + rhs_params
+        return '%s %s %s' % (lhs, self.postgresql_operator, rhs), params
+
+    def as_sql(self, compiler, connection):
+        raise NotSupportedError(
+            _('%s lookup is not supported on this database backend.' % self.lookup_name)
+        )
+
+
+class HasKeyMixin(JSONLookup):
     mysql_template = "JSON_CONTAINS_PATH({}, '%s', {})"
     oracle_template = "JSON_EXISTS({}, '{}')"
     sqlite_template = "JSON_TYPE({}, %s) IS NOT NULL"
@@ -105,12 +118,6 @@ class HasKeyMixin(FieldGetDbPrepValueMixin, Lookup):
         template = (self.oracle_template.format(lhs, path) for path in paths)
         sql = '(%s)' % self._logical_operator.join(template)
         return sql, lhs_params
-
-    def as_postgresql(self, compiler, connection):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs, rhs_params = self.process_rhs(compiler, connection)
-        params = lhs_params + rhs_params
-        return '%s %s %s' % (lhs, self.postgresql_operator, rhs), params
 
     def as_sqlite(self, compiler, connection):
         lhs, lhs_params, paths = self._process_paths(compiler, connection)
