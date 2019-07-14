@@ -150,3 +150,29 @@ class HasKeys(HasAnyKeys):
     postgresql_operator = '?&'
     _logical_operator = ' AND '
     _one_or_all = 'all'
+
+
+@JSONField.register_lookup
+class DataContains(JSONLookup):
+    lookup_name = 'contains'
+    postgresql_operator = '@>'
+
+    def as_mysql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        sql = "JSON_CONTAINS(%s, %s, '$')"
+        params = lhs_params + rhs_params
+        return sql % (lhs, rhs), params
+
+
+@JSONField.register_lookup
+class ContainedBy(JSONLookup):
+    lookup_name = 'contained_by'
+    postgresql_operator = '<@'
+
+    def as_mysql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        sql = "JSON_CONTAINS(%s, %s, '$')"
+        params = rhs_params + lhs_params
+        return sql % (rhs, lhs), params

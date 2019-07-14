@@ -170,18 +170,6 @@ class TestQuerying(PostgreSQLTestCase):
             self.objs[:7] + self.objs[9:] + [obj]
         )
 
-    def test_contains(self):
-        self.assertSequenceEqual(
-            JSONModel.objects.filter(field__contains={'a': 'b'}),
-            [self.objs[7], self.objs[8]]
-        )
-
-    def test_contained_by(self):
-        self.assertSequenceEqual(
-            JSONModel.objects.filter(field__contained_by={'a': 'b', 'c': 1, 'h': True}),
-            [self.objs[6], self.objs[7]]
-        )
-
     def test_shallow_list_lookup(self):
         self.assertSequenceEqual(
             JSONModel.objects.filter(field__0=1),

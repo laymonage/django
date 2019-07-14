@@ -7,7 +7,7 @@ from django.core import serializers
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection, models, transaction
-from django.db.utils import DatabaseError, IntegrityError
+from django.db.utils import DatabaseError, IntegrityError, NotSupportedError
 from django.test import TestCase
 
 from .models import JSONModel, NullableJSONModel, OrderedJSONModel
@@ -269,3 +269,23 @@ class TestQuerying(TestCase):
             NullableJSONModel.objects.filter(value__has_any_keys=['c', 'l']),
             [self.object_data[2], self.object_data[3], self.object_data[5]]
         )
+
+    def test_contains(self):
+        query = NullableJSONModel.objects.filter(value__contains={'a': 'b'})
+        if connection.vendor in ['oracle', 'sqlite']:
+            self.assertRaises(NotSupportedError, query.exists)
+        else:
+            self.assertSequenceEqual(
+                query,
+                [self.object_data[2], self.object_data[3]]
+            )
+
+    def test_contained_by(self):
+        query = NullableJSONModel.objects.filter(value__contained_by={'a': 'b', 'c': 1, 'h': True})
+        if connection.vendor in ['oracle', 'sqlite']:
+            self.assertRaises(NotSupportedError, query.exists)
+        else:
+            self.assertSequenceEqual(
+                query,
+                [self.object_data[1], self.object_data[2]]
+            )
