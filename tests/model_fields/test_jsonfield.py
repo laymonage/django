@@ -246,6 +246,12 @@ class TestQuerying(TestCase):
             for value in object_values
         ]
 
+    def test_has_key_with_null_value(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__has_key='j'),
+            [self.object_data[3]]
+        )
+
     def test_has_key(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__has_key='a'),
