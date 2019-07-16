@@ -23,7 +23,7 @@ class JSONField(CheckFieldDefaultMixin, Field):
 
     def __init__(self, encoder=None, decoder=None, default=dict, *args, **kwargs):
         if not builtin_connection.features.supports_json:
-            raise NotSupportedError(_('This database backend does not support JSONField.'))
+            raise NotSupportedError(_('JSONField is not supported by this database backend.'))
         self.encoder, self.decoder = encoder, decoder
         super().__init__(default=default, *args, **kwargs)
 
@@ -96,7 +96,7 @@ class JSONLookup(FieldGetDbPrepValueMixin, Lookup):
 
     def as_sql(self, compiler, connection):
         raise NotSupportedError(
-            _('%s lookup is not supported on this database backend.' % self.lookup_name)
+            _('%s lookup is not supported by this database backend.' % self.lookup_name)
         )
 
 
