@@ -12,7 +12,7 @@ from django.db import connection, models, transaction
 from django.db.models import Count, Q
 from django.db.models.fields.json import KeyTextTransform, KeyTransform
 from django.db.utils import DatabaseError, IntegrityError
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 
 from .models import JSONModel, NullableJSONModel, OrderedJSONModel
 
@@ -27,7 +27,7 @@ class TestModelMetaOrdering(TestCase):
         self.assertEqual(objects[1].value, {'b': 2})
 
 
-class TestDefaultValue(TestCase):
+class TestDefaultValue(SimpleTestCase):
     def _set_default(self, value):
         field = JSONModel._meta.get_field('value')
         field.default = value
@@ -102,7 +102,7 @@ class TestValidation(TestCase):
             self.assertRaises(DatabaseError, obj.save)
 
 
-class TestModelFormField(TestCase):
+class TestModelFormField(SimpleTestCase):
     def test_formfield(self):
         model_field = models.JSONField()
         form_field = model_field.formfield()
@@ -115,7 +115,7 @@ class TestModelFormField(TestCase):
         self.assertIs(form_field.decoder, CustomDecoder)
 
 
-class TestSerialization(TestCase):
+class TestSerialization(SimpleTestCase):
     test_data = (
         '[{"fields": {"value": %s}, '
         '"model": "model_fields.jsonmodel", "pk": null}]'
