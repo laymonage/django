@@ -3,11 +3,14 @@ import json
 from django import forms
 from django.core import exceptions
 from django.db import connection as builtin_connection
-from django.db.models.lookups import FieldGetDbPrepValueMixin, Lookup
+from django.db.models import lookups
+from django.db.models.lookups import (
+    FieldGetDbPrepValueMixin, Lookup, Transform,
+)
 from django.db.utils import NotSupportedError
 from django.utils.translation import gettext_lazy as _
 
-from . import Field
+from . import Field, TextField
 from .mixins import CheckFieldDefaultMixin
 
 
@@ -48,6 +51,12 @@ class JSONField(CheckFieldDefaultMixin, Field):
         if value is None:
             return value
         return json.dumps(value, cls=self.encoder)
+
+    def get_transform(self, name):
+        transform = super().get_transform(name)
+        if transform:
+            return transform
+        return KeyTransformFactory(name)
 
     def select_format(self, compiler, sql, params):
         if compiler.connection.vendor == 'postgresql':
@@ -176,3 +185,129 @@ class ContainedBy(JSONLookup):
         sql = "JSON_CONTAINS(%s, %s, '$')"
         params = rhs_params + lhs_params
         return sql % (rhs, lhs), params
+
+
+@JSONField.register_lookup
+class JSONExact(lookups.Exact):
+    can_use_none_as_rhs = True
+
+    def process_rhs(self, compiler, connection):
+        result = super().process_rhs(compiler, connection)
+        # Treat None lookup values as null.
+        return ("'null'", []) if result == ('%s', [None]) else result
+
+
+class KeyTransform(Transform):
+    postgresql_operator = '->'
+    postgresql_nested_operator = '#>'
+
+    def __init__(self, key_name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.key_name = key_name
+
+    def _preprocess_lhs(self, compiler, connection):
+        key_transforms = [self.key_name]
+        previous = self.lhs
+        while isinstance(previous, KeyTransform):
+            key_transforms.insert(0, previous.key_name)
+            previous = previous.lhs
+
+        lhs, params = compiler.compile(previous)
+        return lhs, params, key_transforms
+
+    def as_postgresql(self, compiler, connection):
+        lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
+        if len(key_transforms) > 1:
+            return "(%s %s %%s)" % (lhs, self.postgresql_nested_operator), [key_transforms] + params
+        try:
+            int(self.key_name)
+        except ValueError:
+            lookup = "'%s'" % self.key_name
+        else:
+            lookup = "%s" % self.key_name
+        return "(%s %s %s)" % (lhs, self.postgresql_operator, lookup), params
+
+    def as_mysql(self, compiler, connection):
+        lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
+        json_path = self.mysql_compile_json_path(key_transforms)
+        return 'JSON_EXTRACT({}, %s)'.format(lhs), params + [json_path]
+
+    def mysql_compile_json_path(self, key_transforms):
+        path = ['$']
+        for key_transform in key_transforms:
+            try:
+                num = int(key_transform)
+                path.append('[{}]'.format(num))
+            except ValueError:  # non-integer
+                path.append('.')
+                path.append(key_transform)
+        return ''.join(path)
+
+
+class KeyTextTransform(KeyTransform):
+    postgresql_operator = '->>'
+    postgresql_nested_operator = '#>>'
+    output_field = TextField()
+
+
+class KeyTransformTextLookupMixin:
+    """
+    Mixin for combining with a lookup expecting a text lhs from a JSONField
+    key lookup. Make use of the ->> operator instead of casting key values to
+    text and performing the lookup on the resulting representation.
+    """
+    def __init__(self, key_transform, *args, **kwargs):
+        assert isinstance(key_transform, KeyTransform)
+        key_text_transform = KeyTextTransform(
+            key_transform.key_name, *key_transform.source_expressions, **key_transform.extra
+        )
+        super().__init__(key_text_transform, *args, **kwargs)
+
+
+@KeyTransform.register_lookup
+class KeyTransformIExact(KeyTransformTextLookupMixin, lookups.IExact):
+    pass
+
+
+@KeyTransform.register_lookup
+class KeyTransformIContains(KeyTransformTextLookupMixin, lookups.IContains):
+    pass
+
+
+@KeyTransform.register_lookup
+class KeyTransformStartsWith(KeyTransformTextLookupMixin, lookups.StartsWith):
+    pass
+
+
+@KeyTransform.register_lookup
+class KeyTransformIStartsWith(KeyTransformTextLookupMixin, lookups.IStartsWith):
+    pass
+
+
+@KeyTransform.register_lookup
+class KeyTransformEndsWith(KeyTransformTextLookupMixin, lookups.EndsWith):
+    pass
+
+
+@KeyTransform.register_lookup
+class KeyTransformIEndsWith(KeyTransformTextLookupMixin, lookups.IEndsWith):
+    pass
+
+
+@KeyTransform.register_lookup
+class KeyTransformRegex(KeyTransformTextLookupMixin, lookups.Regex):
+    pass
+
+
+@KeyTransform.register_lookup
+class KeyTransformIRegex(KeyTransformTextLookupMixin, lookups.IRegex):
+    pass
+
+
+class KeyTransformFactory:
+
+    def __init__(self, key_name):
+        self.key_name = key_name
+
+    def __call__(self, *args, **kwargs):
+        return KeyTransform(self.key_name, *args, **kwargs)

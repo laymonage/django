@@ -1,3 +1,4 @@
+import operator
 import uuid
 
 from tests.test_utils.json import CustomDecoder, StrEncoder
@@ -7,6 +8,8 @@ from django.core import serializers
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection, models, transaction
+from django.db.models import Count, Q
+from django.db.models.fields.json import KeyTextTransform, KeyTransform
 from django.db.utils import DatabaseError, IntegrityError, NotSupportedError
 from django.test import TestCase
 
@@ -289,3 +292,181 @@ class TestQuerying(TestCase):
                 query,
                 [self.object_data[1], self.object_data[2]]
             )
+
+    def test_exact(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__exact={}),
+            [self.object_data[1]]
+        )
+
+    def test_exact_complex(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__exact={'a': 'b', 'c': 1}),
+            [self.object_data[2]]
+        )
+
+    def test_isnull(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__isnull=True),
+            [self.scalar_data[0]]
+        )
+
+    def test_ordering_by_transform(self):
+        objs = [
+            NullableJSONModel.objects.create(value={'ord': 93, 'name': 'bar'}),
+            NullableJSONModel.objects.create(value={'ord': 22.1, 'name': 'foo'}),
+            NullableJSONModel.objects.create(value={'ord': -1, 'name': 'baz'}),
+            NullableJSONModel.objects.create(value={'ord': 21.931902, 'name': 'spam'}),
+            NullableJSONModel.objects.create(value={'ord': -100291029, 'name': 'eggs'}),
+        ]
+        query = NullableJSONModel.objects.filter(value__name__isnull=False).order_by('value__ord')
+        self.assertSequenceEqual(query, [objs[4], objs[2], objs[3], objs[1], objs[0]])
+
+    def test_ordering_grouping_by_key_transform(self):
+        base_qs = NullableJSONModel.objects.filter(value__d__0__isnull=False)
+        for qs in (
+            base_qs.order_by('value__d__0'),
+            base_qs.annotate(key=KeyTransform('0', KeyTransform('d', 'value'))).order_by('key'),
+        ):
+            self.assertSequenceEqual(qs, [self.object_data[3]])
+        qs = NullableJSONModel.objects.filter(value__isnull=False)
+        self.assertQuerysetEqual(
+            qs.values('value__d__0').annotate(count=Count('value__d__0')).order_by('count'),
+            [1, 10],
+            operator.itemgetter('count'),
+        )
+        self.assertQuerysetEqual(
+            qs.filter(value__isnull=False).annotate(
+                key=KeyTextTransform('f', KeyTransform('1', KeyTransform('d', 'value'))),
+            ).values('key').annotate(count=Count('key')).order_by('count'),
+            [(None, 0), ('g', 1)],
+            operator.itemgetter('key', 'count'),
+        )
+
+    def test_deep_values(self):
+        query = NullableJSONModel.objects.values_list('value__k__l')
+        self.assertSequenceEqual(
+            query,
+            [
+                (None,), (None,), (None,), (None,), (None,), (None,),
+                (None,), (None,), ('m',), (None,), (None,), (None,),
+            ]
+        )
+
+    def test_deep_distinct(self):
+        query = NullableJSONModel.objects.distinct('value__k__l').values_list('value__k__l')
+        self.assertSequenceEqual(query, [('m',), (None,)])
+
+    def test_isnull_key(self):
+        # key__isnull works the same as has_key='key'.
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__a__isnull=True),
+            self.scalar_data + self.object_data[:2] + self.object_data[4:]
+        )
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__a__isnull=False),
+            [self.object_data[2], self.object_data[3]]
+        )
+
+    def test_none_key(self):
+        self.assertSequenceEqual(NullableJSONModel.objects.filter(value__j=None), [self.object_data[3]])
+
+    def test_none_key_exclude(self):
+        obj = NullableJSONModel.objects.create(value={'j': 1})
+        self.assertSequenceEqual(NullableJSONModel.objects.exclude(value__j=None), [obj])
+
+    def test_isnull_key_or_none(self):
+        obj = NullableJSONModel.objects.create(value={'a': None})
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(Q(value__a__isnull=True) | Q(value__a=None)),
+            self.scalar_data + self.object_data[:2] + self.object_data[4:] + [obj]
+        )
+
+    def test_shallow_list_lookup(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__0=1),
+            [self.object_data[4]]
+        )
+
+    def test_shallow_obj_lookup(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__a='b'),
+            [self.object_data[2], self.object_data[3]]
+        )
+
+    def test_deep_lookup_objs(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__k__l='m'),
+            [self.object_data[3]]
+        )
+
+    def test_shallow_lookup_obj_target(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__k={'l': 'm'}),
+            [self.object_data[3]]
+        )
+
+    def test_deep_lookup_array(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__1__0=2),
+            [self.object_data[4]]
+        )
+
+    def test_deep_lookup_mixed(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__d__1__f='g'),
+            [self.object_data[3]]
+        )
+
+    def test_deep_lookup_transform(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__c__gt=1),
+            []
+        )
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__c__lt=5),
+            [self.object_data[2], self.object_data[3]]
+        )
+
+    def test_usage_in_subquery(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(id__in=NullableJSONModel.objects.filter(value__c=1)),
+            self.object_data[2:4]
+        )
+
+    def test_iexact(self):
+        self.assertTrue(NullableJSONModel.objects.filter(value__foo__iexact='BaR').exists())
+        self.assertFalse(NullableJSONModel.objects.filter(value__foo__iexact='"BaR"').exists())
+
+    def test_icontains(self):
+        self.assertFalse(NullableJSONModel.objects.filter(value__foo__icontains='"bar"').exists())
+
+    def test_startswith(self):
+        self.assertTrue(NullableJSONModel.objects.filter(value__foo__startswith='b').exists())
+
+    def test_istartswith(self):
+        self.assertTrue(NullableJSONModel.objects.filter(value__foo__istartswith='B').exists())
+
+    def test_endswith(self):
+        self.assertTrue(NullableJSONModel.objects.filter(value__foo__endswith='r').exists())
+
+    def test_iendswith(self):
+        self.assertTrue(NullableJSONModel.objects.filter(value__foo__iendswith='R').exists())
+
+    def test_regex(self):
+        self.assertTrue(NullableJSONModel.objects.filter(value__foo__regex=r'^bar$').exists())
+
+    def test_iregex(self):
+        self.assertTrue(NullableJSONModel.objects.filter(value__foo__iregex=r'^bAr$').exists())
+
+    def test_key_sql_injection(self):
+        with CaptureQueriesContext(connection) as queries:
+            self.assertFalse(
+                JSONModel.objects.filter(**{
+                    """field__test' = '"a"') OR 1 = 1 OR ('d""": 'x',
+                }).exists()
+            )
+        self.assertIn(
+            """."field" -> 'test'' = ''"a"'') OR 1 = 1 OR (''d') = '"x"' """,
+            queries[0]['sql'],
+        )
