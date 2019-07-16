@@ -216,7 +216,7 @@ class TestQuerying(TestCase):
     def setUpTestData(cls):
         scalar_values = [None]
         if connection.vendor != 'oracle':
-            scalar_values += [True, False, 'yes', 7]
+            scalar_values += [True, False, 'yes', 7, 9.6]
         object_values = [
             [], {},
             {'a': 'b', 'c': 1},
@@ -327,7 +327,7 @@ class TestQuerying(TestCase):
         qs = NullableJSONModel.objects.filter(value__isnull=False)
         self.assertQuerysetEqual(
             qs.values('value__d__0').annotate(count=Count('value__d__0')).order_by('count'),
-            [1, 10],
+            [1, 11],
             operator.itemgetter('count'),
         )
         self.assertQuerysetEqual(
@@ -344,7 +344,7 @@ class TestQuerying(TestCase):
             query,
             [
                 (None,), (None,), (None,), (None,), (None,), (None,),
-                (None,), (None,), ('m',), (None,), (None,), (None,),
+                (None,), (None,), (None,), ('m',), (None,), (None,), (None,),
             ]
         )
 
