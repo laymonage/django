@@ -1,5 +1,6 @@
 import operator
 import uuid
+from unittest import skipIf
 
 from tests.test_utils.json import CustomDecoder, StrEncoder
 
@@ -10,24 +11,20 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection, models, transaction
 from django.db.models import Count, Q
 from django.db.models.fields.json import KeyTextTransform, KeyTransform
-from django.db.utils import DatabaseError, IntegrityError, NotSupportedError
+from django.db.utils import DatabaseError, IntegrityError
 from django.test import TestCase
 
 from .models import JSONModel, NullableJSONModel, OrderedJSONModel
 
 
+@skipIf(connection.vendor == 'oracle', 'Oracle does not support meta ordering.')
 class TestModelMetaOrdering(TestCase):
     def test_ordering_by_json_field_value(self):
         OrderedJSONModel.objects.create(value={'b': 2})
         OrderedJSONModel.objects.create(value={'a': 3})
         objects = OrderedJSONModel.objects.all()
-
-        if connection.vendor == 'oracle':
-            with transaction.atomic(), self.assertRaises(DatabaseError):
-                objects[0].value
-        else:
-            self.assertEqual(objects[0].value, {'a': 3})
-            self.assertEqual(objects[1].value, {'b': 2})
+        self.assertEqual(objects[0].value, {'a': 3})
+        self.assertEqual(objects[1].value, {'b': 2})
 
 
 class TestDefaultValue(TestCase):
@@ -161,6 +158,7 @@ class TestSaveLoad(TestCase):
         obj = NullableJSONModel.objects.get(id=obj.id)
         self.assertIsNone(obj.value)
 
+    @skipIf(connection.vendor == 'oracle', 'Oracle does not support scalar values.')
     def test_scalar_value(self):
         values = [
             True, False, 123456, 1234.56, 'A string', '',
@@ -168,14 +166,9 @@ class TestSaveLoad(TestCase):
         for value in values:
             with self.subTest(value=value):
                 obj = JSONModel(value=value)
-                # Oracle Database doesn't allow scalar values
-                if connection.vendor == 'oracle':
-                    with transaction.atomic():
-                        self.assertRaises(IntegrityError, obj.save)
-                else:
-                    obj.save()
-                    obj = JSONModel.objects.get(id=obj.id)
-                    self.assertEqual(obj.value, value)
+                obj.save()
+                obj = JSONModel.objects.get(id=obj.id)
+                self.assertEqual(obj.value, value)
 
     def test_dict_value(self):
         values = [
@@ -221,9 +214,9 @@ class TestSaveLoad(TestCase):
 class TestQuerying(TestCase):
     @classmethod
     def setUpTestData(cls):
-        scalar_values = [None] if connection.vendor == 'oracle' else [
-            None, True, False, 'yes', 7,
-        ]
+        scalar_values = [None]
+        if connection.vendor != 'oracle':
+            scalar_values += [True, False, 'yes', 7]
         object_values = [
             [], {},
             {'a': 'b', 'c': 1},
@@ -273,25 +266,27 @@ class TestQuerying(TestCase):
             [self.object_data[2], self.object_data[3], self.object_data[5]]
         )
 
+    @skipIf(
+        connection.vendor in ['oracle', 'sqlite'],
+        "Oracle and SQLite do not support 'contains' lookup."
+    )
     def test_contains(self):
         query = NullableJSONModel.objects.filter(value__contains={'a': 'b'})
-        if connection.vendor in ['oracle', 'sqlite']:
-            self.assertRaises(NotSupportedError, query.exists)
-        else:
-            self.assertSequenceEqual(
-                query,
-                [self.object_data[2], self.object_data[3]]
-            )
+        self.assertSequenceEqual(
+            query,
+            [self.object_data[2], self.object_data[3]]
+        )
 
+    @skipIf(
+        connection.vendor in ['oracle', 'sqlite'],
+        "Oracle and SQLite do not support 'contained_by' lookup."
+    )
     def test_contained_by(self):
         query = NullableJSONModel.objects.filter(value__contained_by={'a': 'b', 'c': 1, 'h': True})
-        if connection.vendor in ['oracle', 'sqlite']:
-            self.assertRaises(NotSupportedError, query.exists)
-        else:
-            self.assertSequenceEqual(
-                query,
-                [self.object_data[1], self.object_data[2]]
-            )
+        self.assertSequenceEqual(
+            query,
+            [self.object_data[1], self.object_data[2]]
+        )
 
     def test_exact(self):
         self.assertSequenceEqual(
@@ -353,6 +348,7 @@ class TestQuerying(TestCase):
             ]
         )
 
+    @skipIf(connection.vendor == 'mysql', 'MySQL does not support DISTINCT ON fields.')
     def test_deep_distinct(self):
         query = NullableJSONModel.objects.distinct('value__k__l').values_list('value__k__l')
         self.assertSequenceEqual(query, [('m',), (None,)])
