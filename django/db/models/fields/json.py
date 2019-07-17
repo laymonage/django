@@ -3,7 +3,7 @@ import json
 from django import forms
 from django.core import exceptions
 from django.db import connection as builtin_connection
-from django.db.models import lookups
+from django.db.models import Func, Value, lookups
 from django.db.models.lookups import (
     FieldGetDbPrepValueMixin, Lookup, Transform,
 )
@@ -187,14 +187,35 @@ class ContainedBy(JSONLookup):
         return sql % (rhs, lhs), params
 
 
+class JSONValue(Func):
+    function = 'CAST'
+    template = '%(function)s(%(expressions)s AS JSON)'
+
+    def __init__(self, expression):
+        super().__init__(Value(expression))
+
+
 @JSONField.register_lookup
 class JSONExact(lookups.Exact):
     can_use_none_as_rhs = True
 
     def process_rhs(self, compiler, connection):
-        result = super().process_rhs(compiler, connection)
+        rhs, rhs_params = super().process_rhs(compiler, connection)
         # Treat None lookup values as null.
-        return ("'null'", []) if result == ('%s', [None]) else result
+        if (rhs, rhs_params) == ('%s', [None]):
+            rhs, rhs_params = ('%s', ['null'])
+        if connection.vendor == 'mysql' and not connection.mysql_is_mariadb:
+            func_params = []
+            new_params = []
+            for param in rhs_params:
+                if not hasattr(param, '_prepare') and param is not None:
+                    func, this_func_param = JSONValue(param).as_sql(compiler, connection)
+                    func_params.append(func)
+                    new_params += this_func_param
+                else:
+                    func_params.append(param)
+            rhs, rhs_params = rhs % tuple(func_params), new_params
+        return rhs, rhs_params
 
 
 class KeyTransform(Transform):
@@ -264,43 +285,131 @@ class KeyTransformTextLookupMixin:
         super().__init__(key_text_transform, *args, **kwargs)
 
 
+class StringKeyTransformTextLookupMixin(KeyTransformTextLookupMixin):
+    def process_rhs(self, compiler, connection):
+        rhs, rhs_params = super().process_rhs(compiler, connection)
+        if connection.vendor == 'mysql':
+            params = []
+            for p in rhs_params:
+                params.append(json.dumps(p))
+            rhs_params = params
+        return rhs, rhs_params
+
+
+class NonStringKeyTransformTextLookupMixin:
+    def process_rhs(self, compiler, connection):
+        rhs, rhs_params = super().process_rhs(compiler, connection)
+        if connection.vendor == 'mysql':
+            params = []
+            for p in rhs_params:
+                val = json.loads(p)
+                if isinstance(val, (list, dict)):
+                    val = json.dumps(val)
+                params.append(val)
+            rhs_params = params
+        return rhs, rhs_params
+
+
+class CaseInsensitiveMixin:
+    def as_mysql(self, compiler, connection):
+        lhs, lhs_params = super().process_lhs(compiler, connection, lhs=None)
+        lhs = 'LOWER(%s)' % lhs
+        rhs, rhs_params, = super().process_rhs(compiler, connection)
+        rhs = 'LOWER(%s)' % rhs
+        params = lhs_params + rhs_params
+        rhs = self.get_rhs_op(connection, rhs)
+        return '%s %s' % (lhs, rhs), params
+
+
 @KeyTransform.register_lookup
-class KeyTransformIExact(KeyTransformTextLookupMixin, lookups.IExact):
+class KeyTransformExact(JSONExact):
+    def process_rhs(self, compiler, connection):
+        rhs, rhs_params = super().process_rhs(compiler, connection)
+        if connection.vendor == 'mysql':
+            func_params = []
+            new_params = []
+
+            for param in rhs_params:
+                val = json.loads(param)
+                if isinstance(val, (list, dict)):
+                    if not connection.mysql_is_mariadb:
+                        func, this_func_param = JSONValue(param).as_sql(compiler, connection)
+                        func_params.append(func)
+                        new_params += this_func_param
+                    else:
+                        func_params.append('%s')
+                        new_params.append(param)
+                else:
+                    if not connection.mysql_is_mariadb or val is None:
+                        val = param
+                    func_params.append('%s')
+                    new_params.append(val)
+            rhs, rhs_params = rhs % tuple(func_params), new_params
+        return rhs, rhs_params
+
+
+@KeyTransform.register_lookup
+class KeyTransformIExact(CaseInsensitiveMixin, StringKeyTransformTextLookupMixin, lookups.IExact):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformIContains(KeyTransformTextLookupMixin, lookups.IContains):
+class KeyTransformIContains(CaseInsensitiveMixin, StringKeyTransformTextLookupMixin, lookups.IContains):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformStartsWith(KeyTransformTextLookupMixin, lookups.StartsWith):
+class KeyTransformContains(StringKeyTransformTextLookupMixin, lookups.Contains):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformIStartsWith(KeyTransformTextLookupMixin, lookups.IStartsWith):
+class KeyTransformStartsWith(StringKeyTransformTextLookupMixin, lookups.StartsWith):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformEndsWith(KeyTransformTextLookupMixin, lookups.EndsWith):
+class KeyTransformIStartsWith(CaseInsensitiveMixin, StringKeyTransformTextLookupMixin, lookups.IStartsWith):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformIEndsWith(KeyTransformTextLookupMixin, lookups.IEndsWith):
+class KeyTransformEndsWith(StringKeyTransformTextLookupMixin, lookups.EndsWith):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformRegex(KeyTransformTextLookupMixin, lookups.Regex):
+class KeyTransformIEndsWith(CaseInsensitiveMixin, StringKeyTransformTextLookupMixin, lookups.IEndsWith):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformIRegex(KeyTransformTextLookupMixin, lookups.IRegex):
+class KeyTransformRegex(StringKeyTransformTextLookupMixin, lookups.Regex):
+    pass
+
+
+@KeyTransform.register_lookup
+class KeyTransformIRegex(StringKeyTransformTextLookupMixin, lookups.IRegex):
+    pass
+
+
+@KeyTransform.register_lookup
+class KeyTransformLte(NonStringKeyTransformTextLookupMixin, lookups.LessThanOrEqual):
+    pass
+
+
+@KeyTransform.register_lookup
+class KeyTransformLt(NonStringKeyTransformTextLookupMixin, lookups.LessThan):
+    pass
+
+
+@KeyTransform.register_lookup
+class KeyTransformGte(NonStringKeyTransformTextLookupMixin, lookups.GreaterThanOrEqual):
+    pass
+
+
+@KeyTransform.register_lookup
+class KeyTransformGt(NonStringKeyTransformTextLookupMixin, lookups.GreaterThan):
     pass
 
 
