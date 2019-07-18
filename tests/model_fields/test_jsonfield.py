@@ -13,6 +13,7 @@ from django.db.models import Count, Q
 from django.db.models.fields.json import KeyTextTransform, KeyTransform
 from django.db.utils import DatabaseError, IntegrityError
 from django.test import SimpleTestCase, TestCase
+from django.test.utils import CaptureQueriesContext
 
 from .models import JSONModel, NullableJSONModel, OrderedJSONModel
 
@@ -449,10 +450,12 @@ class TestQuerying(TestCase):
     def test_iendswith(self):
         self.assertTrue(NullableJSONModel.objects.filter(value__foo__iendswith='R').exists())
 
-    def test_regex(self):
+    @skipIf(connection.vendor == 'mysql', 'JSON strings are quoted on MySQL.')
+    def test_regex_unquoted(self):
         self.assertTrue(NullableJSONModel.objects.filter(value__foo__regex=r'^bar$').exists())
 
-    def test_iregex(self):
+    @skipIf(connection.vendor == 'mysql', 'JSON strings are quoted on MySQL.')
+    def test_iregex_unquoted(self):
         self.assertTrue(NullableJSONModel.objects.filter(value__foo__iregex=r'^bAr$').exists())
 
     def test_key_sql_injection(self):
@@ -466,3 +469,11 @@ class TestQuerying(TestCase):
             """."field" -> 'test'' = ''"a"'') OR 1 = 1 OR (''d') = '"x"' """,
             queries[0]['sql'],
         )
+
+    @skipIf(connection.vendor == 'postgresql', 'JSON strings are unquoted on PostgreSQL.')
+    def test_regex_quoted(self):
+        self.assertTrue(NullableJSONModel.objects.filter(value__foo__regex=r'^"bar"$').exists())
+
+    @skipIf(connection.vendor == 'postgresql', 'JSON strings are unquoted on PostgreSQL.')
+    def test_iregex_quoted(self):
+        self.assertTrue(NullableJSONModel.objects.filter(value__foo__iregex=r'^"bAr"$').exists())

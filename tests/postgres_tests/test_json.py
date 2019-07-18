@@ -1,10 +1,8 @@
 import operator
 
-from django.db import connection
 from django.db.models import Count, F, Q
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Cast
-from django.test.utils import CaptureQueriesContext
 
 from . import PostgreSQLTestCase
 from .models import JSONModel
