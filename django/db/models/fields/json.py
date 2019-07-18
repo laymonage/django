@@ -204,17 +204,15 @@ class JSONExact(lookups.Exact):
         # Treat None lookup values as null.
         if (rhs, rhs_params) == ('%s', [None]):
             rhs, rhs_params = ('%s', ['null'])
-        if connection.vendor == 'mysql' and not connection.mysql_is_mariadb:
-            func_params = []
-            new_params = []
-            for param in rhs_params:
-                if not hasattr(param, '_prepare') and param is not None:
-                    func, this_func_param = JSONValue(param).as_sql(compiler, connection)
-                    func_params.append(func)
-                    new_params += this_func_param
+        elif connection.vendor == 'mysql':
+            func = []
+            for value in rhs_params:
+                val = json.loads(value)
+                if isinstance(val, (list, dict)):
+                    func.append("JSON_EXTRACT(%s, '$')")
                 else:
-                    func_params.append(param)
-            rhs, rhs_params = rhs % tuple(func_params), new_params
+                    func.append("JSON_UNQUOTE(JSON_EXTRACT(%s, '$'))")
+            rhs = rhs % tuple(func)
         return rhs, rhs_params
 
 
@@ -251,7 +249,7 @@ class KeyTransform(Transform):
     def as_mysql(self, compiler, connection):
         lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
         json_path = self.mysql_compile_json_path(key_transforms)
-        return 'JSON_EXTRACT({}, %s)'.format(lhs), params + [json_path]
+        return 'JSON_UNQUOTE(JSON_EXTRACT(%s, %%s))' % lhs, params + [json_path]
 
     def mysql_compile_json_path(self, key_transforms):
         path = ['$']
@@ -283,31 +281,6 @@ class KeyTransformTextLookupMixin:
             key_transform.key_name, *key_transform.source_expressions, **key_transform.extra
         )
         super().__init__(key_text_transform, *args, **kwargs)
-
-
-class StringKeyTransformTextLookupMixin(KeyTransformTextLookupMixin):
-    def process_rhs(self, compiler, connection):
-        rhs, rhs_params = super().process_rhs(compiler, connection)
-        if connection.vendor == 'mysql':
-            params = []
-            for p in rhs_params:
-                params.append(json.dumps(p))
-            rhs_params = params
-        return rhs, rhs_params
-
-
-class NonStringKeyTransformTextLookupMixin:
-    def process_rhs(self, compiler, connection):
-        rhs, rhs_params = super().process_rhs(compiler, connection)
-        if connection.vendor == 'mysql':
-            params = []
-            for p in rhs_params:
-                val = json.loads(p)
-                if isinstance(val, (list, dict)):
-                    val = json.dumps(val)
-                params.append(val)
-            rhs_params = params
-        return rhs, rhs_params
 
 
 class CaseInsensitiveMixin:
@@ -352,37 +325,37 @@ class KeyTransformExact(JSONExact):
 
 
 @KeyTransform.register_lookup
-class KeyTransformIExact(CaseInsensitiveMixin, StringKeyTransformTextLookupMixin, lookups.IExact):
+class KeyTransformIExact(CaseInsensitiveMixin, KeyTransformTextLookupMixin, lookups.IExact):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformIContains(CaseInsensitiveMixin, StringKeyTransformTextLookupMixin, lookups.IContains):
+class KeyTransformIContains(CaseInsensitiveMixin, KeyTransformTextLookupMixin, lookups.IContains):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformContains(StringKeyTransformTextLookupMixin, lookups.Contains):
+class KeyTransformContains(KeyTransformTextLookupMixin, lookups.Contains):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformStartsWith(StringKeyTransformTextLookupMixin, lookups.StartsWith):
+class KeyTransformStartsWith(KeyTransformTextLookupMixin, lookups.StartsWith):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformIStartsWith(CaseInsensitiveMixin, StringKeyTransformTextLookupMixin, lookups.IStartsWith):
+class KeyTransformIStartsWith(CaseInsensitiveMixin, KeyTransformTextLookupMixin, lookups.IStartsWith):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformEndsWith(StringKeyTransformTextLookupMixin, lookups.EndsWith):
+class KeyTransformEndsWith(KeyTransformTextLookupMixin, lookups.EndsWith):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformIEndsWith(CaseInsensitiveMixin, StringKeyTransformTextLookupMixin, lookups.IEndsWith):
+class KeyTransformIEndsWith(CaseInsensitiveMixin, KeyTransformTextLookupMixin, lookups.IEndsWith):
     pass
 
 
@@ -397,22 +370,22 @@ class KeyTransformIRegex(CaseInsensitiveMixin, KeyTransformTextLookupMixin, look
 
 
 @KeyTransform.register_lookup
-class KeyTransformLte(NonStringKeyTransformTextLookupMixin, lookups.LessThanOrEqual):
+class KeyTransformLte(KeyTransformTextLookupMixin, lookups.LessThanOrEqual):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformLt(NonStringKeyTransformTextLookupMixin, lookups.LessThan):
+class KeyTransformLt(KeyTransformTextLookupMixin, lookups.LessThan):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformGte(NonStringKeyTransformTextLookupMixin, lookups.GreaterThanOrEqual):
+class KeyTransformGte(KeyTransformTextLookupMixin, lookups.GreaterThanOrEqual):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformGt(NonStringKeyTransformTextLookupMixin, lookups.GreaterThan):
+class KeyTransformGt(KeyTransformTextLookupMixin, lookups.GreaterThan):
     pass
 
 

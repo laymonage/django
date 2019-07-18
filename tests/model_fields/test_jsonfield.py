@@ -450,11 +450,9 @@ class TestQuerying(TestCase):
     def test_iendswith(self):
         self.assertTrue(NullableJSONModel.objects.filter(value__foo__iendswith='R').exists())
 
-    @skipIf(connection.vendor == 'mysql', 'JSON strings are quoted on MySQL.')
     def test_regex_unquoted(self):
         self.assertTrue(NullableJSONModel.objects.filter(value__foo__regex=r'^bar$').exists())
 
-    @skipIf(connection.vendor == 'mysql', 'JSON strings are quoted on MySQL.')
     def test_iregex_unquoted(self):
         self.assertTrue(NullableJSONModel.objects.filter(value__foo__iregex=r'^bAr$').exists())
 
@@ -469,11 +467,3 @@ class TestQuerying(TestCase):
             """."field" -> 'test'' = ''"a"'') OR 1 = 1 OR (''d') = '"x"' """,
             queries[0]['sql'],
         )
-
-    @skipIf(connection.vendor == 'postgresql', 'JSON strings are unquoted on PostgreSQL.')
-    def test_regex_quoted(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__regex=r'^"bar"$').exists())
-
-    @skipIf(connection.vendor == 'postgresql', 'JSON strings are unquoted on PostgreSQL.')
-    def test_iregex_quoted(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__iregex=r'^"bAr"$').exists())
