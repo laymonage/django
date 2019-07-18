@@ -87,7 +87,13 @@ class JSONField(CheckFieldDefaultMixin, Field):
         })
 
 
-class SimpleOperatorMixin(FieldGetDbPrepValueMixin):
+class SimpleFunctionOperatorMixin(FieldGetDbPrepValueMixin):
+    def as_sql_function(self, compiler, connection, template, flipped=False):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = lhs_params + rhs_params
+        return template % ((lhs, rhs) if not flipped else (rhs, lhs)), params
+
     def as_sql_operator(self, compiler, connection, operator):
         lhs, lhs_params = self.process_lhs(compiler, connection)
         rhs, rhs_params = self.process_rhs(compiler, connection)
@@ -103,7 +109,7 @@ class SimpleOperatorMixin(FieldGetDbPrepValueMixin):
         )
 
 
-class HasKeyLookup(SimpleOperatorMixin, Lookup):
+class HasKeyLookup(SimpleFunctionOperatorMixin, Lookup):
     logical_operator = None
 
     def as_sql(self, compiler, connection, template=None):
@@ -154,16 +160,8 @@ class HasKeys(HasAnyKeys):
     logical_operator = ' AND '
 
 
-class SimpleFunctionMixin(SimpleOperatorMixin):
-    def as_sql_function(self, compiler, connection, template, flipped=False):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs, rhs_params = self.process_rhs(compiler, connection)
-        params = lhs_params + rhs_params
-        return template % ((lhs, rhs) if not flipped else (rhs, lhs)), params
-
-
 @JSONField.register_lookup
-class DataContains(SimpleFunctionMixin, Lookup):
+class DataContains(SimpleFunctionOperatorMixin, Lookup):
     lookup_name = 'contains'
     postgres_operator = '@>'
 
@@ -172,7 +170,7 @@ class DataContains(SimpleFunctionMixin, Lookup):
 
 
 @JSONField.register_lookup
-class ContainedBy(SimpleFunctionMixin, Lookup):
+class ContainedBy(SimpleFunctionOperatorMixin, Lookup):
     lookup_name = 'contained_by'
     postgres_operator = '<@'
 
