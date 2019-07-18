@@ -311,14 +311,17 @@ class NonStringKeyTransformTextLookupMixin:
 
 
 class CaseInsensitiveMixin:
-    def as_mysql(self, compiler, connection):
-        lhs, lhs_params = super().process_lhs(compiler, connection, lhs=None)
-        lhs = 'LOWER(%s)' % lhs
-        rhs, rhs_params, = super().process_rhs(compiler, connection)
-        rhs = 'LOWER(%s)' % rhs
-        params = lhs_params + rhs_params
-        rhs = self.get_rhs_op(connection, rhs)
-        return '%s %s' % (lhs, rhs), params
+    def process_lhs(self, compiler, connection):
+        if connection.vendor == 'mysql':
+            lhs, lhs_params = super().process_lhs(compiler, connection, lhs=None)
+            return 'LOWER(%s)' % lhs, lhs_params
+        return super().process_lhs(compiler, connection)
+
+    def process_rhs(self, compiler, connection):
+        if connection.vendor == 'mysql':
+            rhs, rhs_params = super().process_rhs(compiler, connection)
+            return 'LOWER(%s)' % rhs, rhs_params
+        return super().process_rhs(compiler, connection)
 
 
 @KeyTransform.register_lookup
@@ -384,12 +387,12 @@ class KeyTransformIEndsWith(CaseInsensitiveMixin, StringKeyTransformTextLookupMi
 
 
 @KeyTransform.register_lookup
-class KeyTransformRegex(StringKeyTransformTextLookupMixin, lookups.Regex):
+class KeyTransformRegex(KeyTransformTextLookupMixin, lookups.Regex):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformIRegex(StringKeyTransformTextLookupMixin, lookups.IRegex):
+class KeyTransformIRegex(CaseInsensitiveMixin, KeyTransformTextLookupMixin, lookups.IRegex):
     pass
 
 
