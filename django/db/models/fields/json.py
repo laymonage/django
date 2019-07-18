@@ -165,17 +165,19 @@ class DataContains(SimpleFunctionOperatorMixin, Lookup):
     lookup_name = 'contains'
     postgres_operator = '@>'
 
-    def as_mysql(self, compiler, connection):
-        return super().as_sql_function(compiler, connection, template="JSON_CONTAINS(%s, %s, '$')")
+    def as_mysql(self, compiler, connection, flipped=False):
+        return super().as_sql_function(
+            compiler, connection, template="JSON_CONTAINS(%s, %s, '$')", flipped=flipped
+        )
 
 
 @JSONField.register_lookup
-class ContainedBy(SimpleFunctionOperatorMixin, Lookup):
+class ContainedBy(DataContains):
     lookup_name = 'contained_by'
     postgres_operator = '<@'
 
     def as_mysql(self, compiler, connection):
-        return super().as_sql_function(compiler, connection, template="JSON_CONTAINS(%s, %s, '$')", flipped=True)
+        return super().as_mysql(compiler, connection, flipped=True)
 
 
 class JSONValue(Func):
