@@ -87,12 +87,15 @@ class JSONField(CheckFieldDefaultMixin, Field):
         })
 
 
-class JSONLookup(FieldGetDbPrepValueMixin, Lookup):
-    def as_postgresql(self, compiler, connection):
+class SimpleOperatorMixin(FieldGetDbPrepValueMixin):
+    def as_sql_operator(self, compiler, connection, operator):
         lhs, lhs_params = self.process_lhs(compiler, connection)
         rhs, rhs_params = self.process_rhs(compiler, connection)
         params = lhs_params + rhs_params
-        return '%s %s %s' % (lhs, self.postgresql_operator, rhs), params
+        return '%s %s %s' % (lhs, operator, rhs), params
+
+    def as_postgresql(self, compiler, connection):
+        return self.as_sql_operator(compiler, connection, self.postgres_operator)
 
     def as_sql(self, compiler, connection):
         raise NotSupportedError(
@@ -100,54 +103,45 @@ class JSONLookup(FieldGetDbPrepValueMixin, Lookup):
         )
 
 
-class HasKeyMixin(JSONLookup):
-    mysql_template = "JSON_CONTAINS_PATH({}, '%s', {})"
-    oracle_template = "JSON_EXISTS({}, '{}')"
-    sqlite_template = "JSON_TYPE({}, %s) IS NOT NULL"
-    _one_or_all = 'one'
-    _logical_operator = ''
+class HasKeyLookup(SimpleOperatorMixin, Lookup):
+    logical_operator = None
 
-    def _process_paths(self, compiler, connection):
+    def as_sql(self, compiler, connection, template=None):
         lhs, lhs_params = self.process_lhs(compiler, connection)
-        if isinstance(self.rhs, str):
-            self.rhs = [self.rhs]
-        paths = [
-            '$.{}'.format(json.dumps(key_name))
-            for key_name in self.rhs
-        ]
-        return lhs, lhs_params, paths
+        rhs = [self.rhs] if not isinstance(self.rhs, (list, tuple)) else self.rhs
+        rhs_params = ['$.%s' % json.dumps(key) for key in rhs]
+        sql = template % lhs
+        if self.logical_operator:
+            # Add condition for each key.
+            sql = self.logical_operator.join([sql] * len(rhs_params))
+        return sql, lhs_params + rhs_params
 
     def as_mysql(self, compiler, connection):
-        lhs, lhs_params, paths = self._process_paths(compiler, connection)
-        sql = (self.mysql_template % self._one_or_all).format(lhs, ', '.join('%s' for _ in paths))
-        return sql, lhs_params + paths
+        return self.as_sql(compiler, connection, template="JSON_CONTAINS_PATH(%s, 'one', %%s)")
 
     def as_oracle(self, compiler, connection):
-        lhs, lhs_params, paths = self._process_paths(compiler, connection)
-        template = (self.oracle_template.format(lhs, path) for path in paths)
-        sql = '(%s)' % self._logical_operator.join(template)
-        return sql, lhs_params
+        sql, params = self.as_sql(compiler, connection, template="JSON_EXISTS(%s, '%%s')")
+        # Add paths directly into SQL because path expressions cannot be passed
+        # as bind variables on Oracle.
+        return sql % tuple(params), []
 
     def as_sqlite(self, compiler, connection):
-        lhs, lhs_params, paths = self._process_paths(compiler, connection)
-        template = (self.sqlite_template.format(lhs) for _ in paths)
-        sql = '(%s)' % self._logical_operator.join(template)
-        return sql, lhs_params + paths
+        return self.as_sql(compiler, connection, template='JSON_TYPE(%s, %%s) IS NOT NULL')
 
 
 @JSONField.register_lookup
-class HasKey(HasKeyMixin):
+class HasKey(HasKeyLookup):
     lookup_name = 'has_key'
-    postgresql_operator = '?'
+    postgres_operator = '?'
 
     prepare_rhs = False
 
 
 @JSONField.register_lookup
-class HasAnyKeys(HasKeyMixin):
+class HasAnyKeys(HasKeyLookup):
     lookup_name = 'has_any_keys'
-    postgresql_operator = '?|'
-    _logical_operator = ' OR '
+    postgres_operator = '?|'
+    logical_operator = ' OR '
 
     def get_prep_lookup(self):
         return [str(item) for item in self.rhs]
@@ -156,35 +150,34 @@ class HasAnyKeys(HasKeyMixin):
 @JSONField.register_lookup
 class HasKeys(HasAnyKeys):
     lookup_name = 'has_keys'
-    postgresql_operator = '?&'
-    _logical_operator = ' AND '
-    _one_or_all = 'all'
+    postgres_operator = '?&'
+    logical_operator = ' AND '
 
 
-@JSONField.register_lookup
-class DataContains(JSONLookup):
-    lookup_name = 'contains'
-    postgresql_operator = '@>'
-
-    def as_mysql(self, compiler, connection):
+class SimpleFunctionMixin(SimpleOperatorMixin):
+    def as_sql_function(self, compiler, connection, template, flipped=False):
         lhs, lhs_params = self.process_lhs(compiler, connection)
         rhs, rhs_params = self.process_rhs(compiler, connection)
-        sql = "JSON_CONTAINS(%s, %s, '$')"
         params = lhs_params + rhs_params
-        return sql % (lhs, rhs), params
+        return template % ((lhs, rhs) if not flipped else (rhs, lhs)), params
 
 
 @JSONField.register_lookup
-class ContainedBy(JSONLookup):
-    lookup_name = 'contained_by'
-    postgresql_operator = '<@'
+class DataContains(SimpleFunctionMixin, Lookup):
+    lookup_name = 'contains'
+    postgres_operator = '@>'
 
     def as_mysql(self, compiler, connection):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs, rhs_params = self.process_rhs(compiler, connection)
-        sql = "JSON_CONTAINS(%s, %s, '$')"
-        params = rhs_params + lhs_params
-        return sql % (rhs, lhs), params
+        return super().as_sql_function(compiler, connection, template="JSON_CONTAINS(%s, %s, '$')")
+
+
+@JSONField.register_lookup
+class ContainedBy(SimpleFunctionMixin, Lookup):
+    lookup_name = 'contained_by'
+    postgres_operator = '<@'
+
+    def as_mysql(self, compiler, connection):
+        return super().as_sql_function(compiler, connection, template="JSON_CONTAINS(%s, %s, '$')", flipped=True)
 
 
 class JSONValue(Func):
@@ -217,8 +210,8 @@ class JSONExact(lookups.Exact):
 
 
 class KeyTransform(Transform):
-    postgresql_operator = '->'
-    postgresql_nested_operator = '#>'
+    postgres_operator = '->'
+    postgres_nested_operator = '#>'
 
     def __init__(self, key_name, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -237,14 +230,14 @@ class KeyTransform(Transform):
     def as_postgresql(self, compiler, connection):
         lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
         if len(key_transforms) > 1:
-            return "(%s %s %%s)" % (lhs, self.postgresql_nested_operator), [key_transforms] + params
+            return "(%s %s %%s)" % (lhs, self.postgres_nested_operator), [key_transforms] + params
         try:
             int(self.key_name)
         except ValueError:
             lookup = "'%s'" % self.key_name
         else:
             lookup = "%s" % self.key_name
-        return "(%s %s %s)" % (lhs, self.postgresql_operator, lookup), params
+        return "(%s %s %s)" % (lhs, self.postgres_operator, lookup), params
 
     def as_mysql(self, compiler, connection):
         lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
@@ -264,8 +257,8 @@ class KeyTransform(Transform):
 
 
 class KeyTextTransform(KeyTransform):
-    postgresql_operator = '->>'
-    postgresql_nested_operator = '#>>'
+    postgres_operator = '->>'
+    postgres_nested_operator = '#>>'
     output_field = TextField()
 
 
