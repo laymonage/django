@@ -270,6 +270,9 @@ class KeyTransformTextLookupMixin:
     """
     def __init__(self, key_transform, *args, **kwargs):
         assert isinstance(key_transform, KeyTransform)
+        if builtin_connection.vendor == 'postgresql':
+            KeyTextTransform.output_field = TextField()
+
         key_text_transform = KeyTextTransform(
             key_transform.key_name, *key_transform.source_expressions, **key_transform.extra
         )
