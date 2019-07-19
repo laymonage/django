@@ -450,10 +450,10 @@ class TestQuerying(TestCase):
     def test_iendswith(self):
         self.assertTrue(NullableJSONModel.objects.filter(value__foo__iendswith='R').exists())
 
-    def test_regex_unquoted(self):
+    def test_regex(self):
         self.assertTrue(NullableJSONModel.objects.filter(value__foo__regex=r'^bar$').exists())
 
-    def test_iregex_unquoted(self):
+    def test_iregex(self):
         self.assertTrue(NullableJSONModel.objects.filter(value__foo__iregex=r'^bAr$').exists())
 
     def test_key_sql_injection(self):
