@@ -197,14 +197,10 @@ class JSONExact(lookups.Exact):
         # Treat None lookup values as null.
         if (rhs, rhs_params) == ('%s', [None]):
             rhs, rhs_params = ('%s', ['null'])
-        elif connection.vendor == 'mysql':
+        if connection.vendor == 'mysql':
             func = []
             for value in rhs_params:
-                val = json.loads(value)
-                if isinstance(val, (list, dict)):
-                    func.append("JSON_EXTRACT(%s, '$')")
-                else:
-                    func.append("JSON_UNQUOTE(JSON_EXTRACT(%s, '$'))")
+                func.append("JSON_EXTRACT(%s, '$')")
             rhs = rhs % tuple(func)
         return rhs, rhs_params
 
@@ -242,7 +238,7 @@ class KeyTransform(Transform):
     def as_mysql(self, compiler, connection):
         lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
         json_path = self.mysql_compile_json_path(key_transforms)
-        return 'JSON_UNQUOTE(JSON_EXTRACT(%s, %%s))' % lhs, params + [json_path]
+        return 'JSON_EXTRACT(%s, %%s)' % lhs, params + [json_path]
 
     def mysql_compile_json_path(self, key_transforms):
         path = ['$']
@@ -259,7 +255,6 @@ class KeyTransform(Transform):
 class KeyTextTransform(KeyTransform):
     postgres_operator = '->>'
     postgres_nested_operator = '#>>'
-    output_field = TextField()
 
 
 class KeyTransformTextLookupMixin:
@@ -278,19 +273,25 @@ class KeyTransformTextLookupMixin:
         )
         super().__init__(key_text_transform, *args, **kwargs)
 
+    def process_lhs(self, compiler, connection):
+        lhs, lhs_params = super().process_lhs(compiler, connection)
+        if connection.vendor == 'mysql':
+            return 'JSON_UNQUOTE(%s)' % lhs, lhs_params
+        return lhs, lhs_params
+
 
 class CaseInsensitiveMixin:
     def process_lhs(self, compiler, connection):
+        lhs, lhs_params = super().process_lhs(compiler, connection)
         if connection.vendor == 'mysql':
-            lhs, lhs_params = super().process_lhs(compiler, connection, lhs=None)
             return 'LOWER(%s)' % lhs, lhs_params
-        return super().process_lhs(compiler, connection)
+        return lhs, lhs_params
 
     def process_rhs(self, compiler, connection):
+        rhs, rhs_params = super().process_rhs(compiler, connection)
         if connection.vendor == 'mysql':
-            rhs, rhs_params = super().process_rhs(compiler, connection)
             return 'LOWER(%s)' % rhs, rhs_params
-        return super().process_rhs(compiler, connection)
+        return rhs, rhs_params
 
 
 @KeyTransform.register_lookup
