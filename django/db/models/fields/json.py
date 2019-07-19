@@ -200,7 +200,11 @@ class JSONExact(lookups.Exact):
         if connection.vendor == 'mysql':
             func = []
             for value in rhs_params:
-                func.append("JSON_EXTRACT(%s, '$')")
+                obj = json.loads(value)
+                if connection.mysql_is_mariadb and isinstance(obj, str):
+                    func.append("JSON_UNQUOTE(JSON_EXTRACT(%s, '$'))")
+                else:
+                    func.append("JSON_EXTRACT(%s, '$')")
             rhs = rhs % tuple(func)
         return rhs, rhs_params
 
