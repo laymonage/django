@@ -292,29 +292,7 @@ class CaseInsensitiveMixin:
 
 @KeyTransform.register_lookup
 class KeyTransformExact(JSONExact):
-    def process_rhs(self, compiler, connection):
-        rhs, rhs_params = super().process_rhs(compiler, connection)
-        if connection.vendor == 'mysql':
-            func_params = []
-            new_params = []
-
-            for param in rhs_params:
-                val = json.loads(param)
-                if isinstance(val, (list, dict)):
-                    if not connection.mysql_is_mariadb:
-                        func, this_func_param = JSONValue(param).as_sql(compiler, connection)
-                        func_params.append(func)
-                        new_params += this_func_param
-                    else:
-                        func_params.append('%s')
-                        new_params.append(param)
-                else:
-                    if not connection.mysql_is_mariadb or val is None:
-                        val = param
-                    func_params.append('%s')
-                    new_params.append(val)
-            rhs, rhs_params = rhs % tuple(func_params), new_params
-        return rhs, rhs_params
+    pass
 
 
 @KeyTransform.register_lookup
