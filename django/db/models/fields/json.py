@@ -227,18 +227,6 @@ class KeyTransform(Transform):
         lhs, params = compiler.compile(previous)
         return lhs, params, key_transforms
 
-    def as_postgresql(self, compiler, connection):
-        lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
-        if len(key_transforms) > 1:
-            return "(%s %s %%s)" % (lhs, self.postgres_nested_operator), [key_transforms] + params
-        try:
-            int(self.key_name)
-        except ValueError:
-            lookup = "'%s'" % self.key_name
-        else:
-            lookup = "%s" % self.key_name
-        return "(%s %s %s)" % (lhs, self.postgres_operator, lookup), params
-
     def as_mysql(self, compiler, connection):
         lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
         json_path = self.mysql_compile_json_path(key_transforms)
@@ -254,6 +242,18 @@ class KeyTransform(Transform):
                 path.append('.')
                 path.append(key_transform)
         return ''.join(path)
+
+    def as_postgresql(self, compiler, connection):
+        lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
+        if len(key_transforms) > 1:
+            return "(%s %s %%s)" % (lhs, self.postgres_nested_operator), [key_transforms] + params
+        try:
+            int(self.key_name)
+        except ValueError:
+            lookup = "'%s'" % self.key_name
+        else:
+            lookup = "%s" % self.key_name
+        return "(%s %s %s)" % (lhs, self.postgres_operator, lookup), params
 
 
 class KeyTextTransform(KeyTransform):
