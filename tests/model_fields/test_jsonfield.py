@@ -9,7 +9,7 @@ from django.core import serializers
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection, models, transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Value
 from django.db.models.fields.json import KeyTextTransform, KeyTransform
 from django.db.utils import DatabaseError, IntegrityError
 from django.test import SimpleTestCase, TestCase
@@ -160,15 +160,40 @@ class TestSaveLoad(TestCase):
         self.assertIsNone(obj.value)
 
     @skipIf(connection.vendor == 'oracle', 'Oracle does not support scalar values.')
+    def test_json_null_different_from_sql_null(self):
+        json_null = NullableJSONModel.objects.create(value=Value('null'))
+        json_null = NullableJSONModel.objects.get(id=json_null.id)
+        sql_null = NullableJSONModel.objects.create(value=None)
+        sql_null = NullableJSONModel.objects.get(id=sql_null.id)
+
+        # They are different in the database ('null' vs NULL)
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value=Value('null')),
+            [json_null]
+        )
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value=None),
+            [json_null]
+        )
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__isnull=True),
+            [sql_null]
+        )
+        # They are equal in Python (None)
+        self.assertEqual(json_null.value, sql_null.value)
+
+    @skipIf(connection.vendor == 'oracle', 'Oracle does not support scalar values.')
     def test_scalar_value(self):
         values = [
-            True, False, 123456, 1234.56, 'A string', '',
+            Value('null'), True, False, 123456, 1234.56, 'A string', '',
         ]
         for value in values:
             with self.subTest(value=value):
                 obj = JSONModel(value=value)
                 obj.save()
                 obj = JSONModel.objects.get(id=obj.id)
+                if value == Value('null'):
+                    value = None
                 self.assertEqual(obj.value, value)
 
     def test_dict_value(self):
