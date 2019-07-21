@@ -40,9 +40,13 @@ class JSONField(CheckFieldDefaultMixin, Field):
     def from_db_value(self, value, expression, connection):
         if value is None:
             return value
-        if connection.vendor == 'oracle' and value == '':
+        elif connection.vendor == 'oracle' and value == '':
             return None
-        return json.loads(value, cls=self.decoder)
+        else:
+            try:
+                return json.loads(value, cls=self.decoder)
+            except json.decoder.JSONDecodeError:
+                return value
 
     def get_internal_type(self):
         return 'JSONField'
@@ -229,10 +233,10 @@ class KeyTransform(Transform):
 
     def as_mysql(self, compiler, connection):
         lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
-        json_path = self.mysql_compile_json_path(key_transforms)
+        json_path = self.compile_json_path(key_transforms)
         return 'JSON_EXTRACT(%s, %%s)' % lhs, params + [json_path]
 
-    def mysql_compile_json_path(self, key_transforms):
+    def compile_json_path(self, key_transforms):
         path = ['$']
         for key_transform in key_transforms:
             try:
@@ -240,8 +244,13 @@ class KeyTransform(Transform):
                 path.append('[{}]'.format(num))
             except ValueError:  # non-integer
                 path.append('.')
-                path.append(key_transform)
+                path.append(json.dumps(key_transform))
         return ''.join(path)
+
+    def as_oracle(self, compiler, connection):
+        lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
+        json_path = self.compile_json_path(key_transforms)
+        return "COALESCE(JSON_QUERY(%s, '%s'), JSON_VALUE(%s, '%s'))" % ((lhs, json_path) * 2), params
 
     def as_postgresql(self, compiler, connection):
         lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
@@ -300,7 +309,19 @@ class CaseInsensitiveMixin:
 
 @KeyTransform.register_lookup
 class KeyTransformExact(JSONExact):
-    pass
+    def process_rhs(self, compiler, connection):
+        rhs, rhs_params = super().process_rhs(compiler, connection)
+        if connection.vendor == 'oracle':
+            func = []
+            for value in rhs_params:
+                val = json.loads(value)
+                if isinstance(val, (list, dict)):
+                    func.append("JSON_QUERY('{\"val\": %s}', '$.val')" % value)
+                else:
+                    func.append("JSON_VALUE('{\"val\": %s}', '$.val')" % value)
+            rhs = rhs % tuple(func)
+            rhs_params = []
+        return rhs, rhs_params
 
 
 @KeyTransform.register_lookup

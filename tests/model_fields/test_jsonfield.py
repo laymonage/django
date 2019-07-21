@@ -307,6 +307,10 @@ class TestQuerying(TestCase):
             [self.scalar_data[0]]
         )
 
+    @skipIf(
+        connection.vendor == 'mysql' and connection.mysql_is_mariadb or connection.vendor == 'oracle',
+        'MariaDB and Oracle do not support ordering by JSON values.'
+    )
     def test_ordering_by_transform(self):
         objs = [
             NullableJSONModel.objects.create(value={'ord': 93, 'name': 'bar'}),
@@ -326,11 +330,13 @@ class TestQuerying(TestCase):
         ):
             self.assertSequenceEqual(qs, [self.object_data[3]])
         qs = NullableJSONModel.objects.filter(value__isnull=False)
-        self.assertQuerysetEqual(
-            qs.values('value__d__0').annotate(count=Count('value__d__0')).order_by('count'),
-            [1, 11],
-            operator.itemgetter('count'),
-        )
+        if connection.vendor != 'oracle':
+            # Oracle doesn't support direct COUNT on LOB fields.
+            self.assertQuerysetEqual(
+                qs.values('value__d__0').annotate(count=Count('value__d__0')).order_by('count'),
+                [1, 11],
+                operator.itemgetter('count'),
+            )
         self.assertQuerysetEqual(
             qs.filter(value__isnull=False).annotate(
                 key=KeyTextTransform('f', KeyTransform('1', KeyTransform('d', 'value'))),
@@ -341,15 +347,24 @@ class TestQuerying(TestCase):
 
     def test_deep_values(self):
         query = NullableJSONModel.objects.values_list('value__k__l')
-        self.assertSequenceEqual(
-            query,
-            [
-                (None,), (None,), (None,), (None,), (None,), (None,),
-                (None,), (None,), (None,), ('m',), (None,), (None,), (None,),
-            ]
-        )
+        if connection.vendor == 'oracle':
+            self.assertSequenceEqual(
+                query,
+                [
+                    (None,),
+                    (None,), (None,), (None,), ('m',), (None,), (None,), (None,),
+                ]
+            )
+        else:
+            self.assertSequenceEqual(
+                query,
+                [
+                    (None,), (None,), (None,), (None,), (None,), (None,),
+                    (None,), (None,), (None,), ('m',), (None,), (None,), (None,),
+                ]
+            )
 
-    @skipIf(connection.vendor == 'mysql', 'MySQL does not support DISTINCT ON fields.')
+    @skipIf(connection.vendor in ['mysql', 'oracle'], 'MySQL and Oracle do not support DISTINCT ON fields.')
     def test_deep_distinct(self):
         query = NullableJSONModel.objects.distinct('value__k__l').values_list('value__k__l')
         self.assertSequenceEqual(query, [('m',), (None,)])
@@ -365,9 +380,11 @@ class TestQuerying(TestCase):
             [self.object_data[2], self.object_data[3]]
         )
 
+    @skipIf(connection.vendor == 'oracle', 'Oracle does not support querying for JSON null values.')
     def test_none_key(self):
         self.assertSequenceEqual(NullableJSONModel.objects.filter(value__j=None), [self.object_data[3]])
 
+    @skipIf(connection.vendor == 'oracle', 'Oracle does not support querying for JSON null values.')
     def test_none_key_exclude(self):
         obj = NullableJSONModel.objects.create(value={'j': 1})
         self.assertSequenceEqual(NullableJSONModel.objects.exclude(value__j=None), [obj])
