@@ -364,7 +364,10 @@ class TestQuerying(TestCase):
                 ]
             )
 
-    @skipIf(connection.vendor in ['mysql', 'oracle'], 'MySQL and Oracle do not support DISTINCT ON fields.')
+    @skipIf(
+        connection.vendor in ['mysql', 'oracle', 'sqlite'],
+        'MySQL, Oracle, and SQLite do not support DISTINCT ON fields.'
+    )
     def test_deep_distinct(self):
         query = NullableJSONModel.objects.distinct('value__k__l').values_list('value__k__l')
         self.assertSequenceEqual(query, [('m',), (None,)])

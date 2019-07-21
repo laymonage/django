@@ -196,6 +196,23 @@ class JSONValue(Func):
 class JSONExact(lookups.Exact):
     can_use_none_as_rhs = True
 
+    def process_lhs(self, compiler, connection):
+        lhs, lhs_params = super().process_lhs(compiler, connection)
+        if connection.vendor == 'sqlite':
+            rhs, rhs_params = super().process_rhs(compiler, connection)
+            if (rhs, rhs_params) == ('%s', [None]):
+                # Need to use JSON_TYPE instead of JSON_EXTRACT
+                # to determine JSON null values.
+                previous = self.lhs
+                while isinstance(previous, KeyTransform):
+                    previous = previous.lhs
+                lhs, params = compiler.compile(previous)
+                if previous == self.lhs:  # No KeyTransform was applied
+                    lhs = "JSON_TYPE(%s, '$')" % lhs
+                else:
+                    lhs = 'JSON_TYPE(%s, %%s)' % lhs
+        return lhs, lhs_params
+
     def process_rhs(self, compiler, connection):
         rhs, rhs_params = super().process_rhs(compiler, connection)
         # Treat None lookup values as null.
@@ -264,6 +281,9 @@ class KeyTransform(Transform):
             lookup = "%s" % self.key_name
         return "(%s %s %s)" % (lhs, self.postgres_operator, lookup), params
 
+    def as_sqlite(self, compiler, connection):
+        return self.as_mysql(compiler, connection)
+
 
 class KeyTextTransform(KeyTransform):
     postgres_operator = '->>'
@@ -321,6 +341,9 @@ class KeyTransformExact(JSONExact):
                     func.append("JSON_VALUE('{\"val\": %s}', '$.val')" % value)
             rhs = rhs % tuple(func)
             rhs_params = []
+        elif connection.vendor == 'sqlite':
+            func = ["JSON_EXTRACT(%s, '$')" if value != 'null' else '%s' for value in rhs_params]
+            rhs = rhs % tuple(func)
         return rhs, rhs_params
 
 
