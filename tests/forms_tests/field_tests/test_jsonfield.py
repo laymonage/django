@@ -22,9 +22,8 @@ class TestFormField(SimpleTestCase):
 
     def test_invalid(self):
         field = forms.JSONField()
-        with self.assertRaises(exceptions.ValidationError) as cm:
+        with self.assertRaisesMessage(exceptions.ValidationError, 'Enter a valid JSON value.'):
             field.clean('{some badly formed: json}')
-        self.assertEqual(cm.exception.messages[0], 'Enter a valid JSON value.')
 
     def test_formfield_disabled(self):
         class JsonForm(forms.Form):
