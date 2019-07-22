@@ -291,6 +291,9 @@ class BaseDatabaseFeatures:
     # Does the backend support boolean expressions in the SELECT clause?
     supports_boolean_expr_in_select_clause = True
 
+    # Does the backend support JSONField?
+    supports_json = False
+
     def __init__(self, connection):
         self.connection = connection
 
