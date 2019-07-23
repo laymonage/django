@@ -295,7 +295,7 @@ class TestQuerying(TestCase):
             [self.object_data[2], self.object_data[3], self.object_data[5]]
         )
 
-    @skipIf(connection.vendor == 'oracle', "Oracle does not support 'contains' lookup.")
+    @skipIf(connection.vendor == 'oracle', "Oracle does not support scalar values.")
     def test_contains_scalar(self):
         for data in self.scalar_data[1:]:
             with self.subTest(data=data):
@@ -304,7 +304,6 @@ class TestQuerying(TestCase):
                     [data]
                 )
 
-    @skipIf(connection.vendor == 'oracle', "Oracle does not support 'contains' lookup.")
     def test_contains_empty_dict(self):
         query = NullableJSONModel.objects.filter(value__contains={})
         self.assertSequenceEqual(
@@ -312,7 +311,6 @@ class TestQuerying(TestCase):
             self.object_data[1:4] + self.object_data[5:]
         )
 
-    @skipIf(connection.vendor == 'oracle', "Oracle does not support 'contains' lookup.")
     def test_contains_multiple(self):
         query = NullableJSONModel.objects.filter(value__contains={'k': True, 'l': False})
         self.assertSequenceEqual(
@@ -320,7 +318,6 @@ class TestQuerying(TestCase):
             [self.object_data[5]]
         )
 
-    @skipIf(connection.vendor == 'oracle', "Oracle does not support 'contains' lookup.")
     def test_contains_complex(self):
         query = NullableJSONModel.objects.filter(value__contains={'d': ['e', {'f': 'g'}]})
         self.assertSequenceEqual(
@@ -328,7 +325,6 @@ class TestQuerying(TestCase):
             [self.object_data[3]]
         )
 
-    @skipIf(connection.vendor == 'oracle', "Oracle does not support 'contains' lookup.")
     def test_contains_array(self):
         query = NullableJSONModel.objects.filter(value__contains=[1, [2]])
         self.assertSequenceEqual(

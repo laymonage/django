@@ -174,6 +174,28 @@ class DataContains(SimpleFunctionOperatorMixin, Lookup):
             compiler, connection, template="JSON_CONTAINS(%s, %s, '$')", flipped=flipped
         )
 
+    def as_oracle(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs = json.loads(self.rhs)
+        if isinstance(rhs, dict):
+            if not rhs:
+                return "DBMS_LOB.SUBSTR(%s) LIKE '{%%%%}'" % lhs, []
+            conditions = []
+            for key, value in rhs.items():
+                k = json.dumps(key)
+                if isinstance(value, (list, dict)):
+                    func = 'JSON_QUERY'
+                else:
+                    func = 'JSON_VALUE'
+                conditions.append(
+                    "%s(%s, '$.%s') = %s('{\"val\": %s}', '$.val')" % (
+                        func, lhs, k, func, json.dumps(value)
+                    )
+                )
+            return ' AND '.join(conditions), []
+        else:
+            return 'DBMS_LOB.SUBSTR(%s) = %%s' % lhs, [self.rhs]
+
     def as_sqlite(self, compiler, connection):
         lhs, lhs_params = self.process_lhs(compiler, connection)
         rhs = json.loads(self.rhs)
