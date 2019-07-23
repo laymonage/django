@@ -84,8 +84,10 @@ class TestValidation(TestCase):
 
     def test_not_serializable(self):
         obj = JSONModel(value=self.uuid_value)
-        with transaction.atomic():
-            self.assertRaises(TypeError, obj.save)
+        with transaction.atomic(), self.assertRaisesMessage(
+            TypeError, 'Object of type UUID is not JSON serializable'
+        ):
+            obj.save()
 
     def test_custom_encoder_decoder(self):
         self._set_encoder_decoder(DjangoJSONEncoder, CustomDecoder)
