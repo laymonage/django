@@ -73,6 +73,17 @@ The new :class:`~django.contrib.postgres.constraints.ExclusionConstraint` class
 enable adding exclusion constraints on PostgreSQL. Constraints are added to
 models using the
 :attr:`Meta.constraints <django.db.models.Options.constraints>` option.
+Cross-DB JSONField
+------------------
+
+Django now includes a :class:`~django.db.models.JSONField` that works on all
+supported database backends. It features support for custom JSON encoder and
+decoder, along with lookups and transforms supported in previously
+PostgreSQL-only :class:`~django.contrib.postgres.fields.JSONField`.
+
+If your project uses the PostgreSQL JSONField, it is advised to migrate and
+use the new JSONField. For now, the old JSONField is left as a reference to
+the new one, and it may be removed in future releases.
 
 Minor features
 --------------
