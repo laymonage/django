@@ -305,6 +305,14 @@ class TestQuerying(TestCase):
                 )
 
     @skipIf(connection.vendor == 'oracle', "Oracle does not support 'contains' lookup.")
+    def test_contains_empty_dict(self):
+        query = NullableJSONModel.objects.filter(value__contains={})
+        self.assertSequenceEqual(
+            query,
+            self.object_data[1:4] + self.object_data[5:]
+        )
+
+    @skipIf(connection.vendor == 'oracle', "Oracle does not support 'contains' lookup.")
     def test_contains_multiple(self):
         query = NullableJSONModel.objects.filter(value__contains={'k': True, 'l': False})
         self.assertSequenceEqual(

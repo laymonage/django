@@ -193,6 +193,9 @@ class DataContains(SimpleFunctionOperatorMixin, Lookup):
                 conditions.append(template % lhs)
                 params.append('$.' + json.dumps(key))
                 params.append(val)
+            if not rhs:
+                conditions.append("JSON_TYPE(%s, '$') = %%s" % lhs)
+                params.append('object')
             return ' AND '.join(conditions), params
         else:
             return '%s = %%s' % lhs, [self.rhs]
