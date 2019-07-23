@@ -101,8 +101,8 @@ class TestValidation(TestCase):
         value = '{@!invalid json value 123 $!@#'
         self._set_encoder_decoder(StrEncoder, None)
         obj = JSONModel(value=value)
-        with transaction.atomic():
-            self.assertRaises(DatabaseError, obj.save)
+        with transaction.atomic(), self.assertRaises(DatabaseError):
+            obj.save()
 
 
 class TestModelFormField(SimpleTestCase):
@@ -156,8 +156,8 @@ class TestSaveLoad(TestCase):
             obj = JSONModel.objects.get(id=obj.id)
             self.assertIsNone(obj.value)
         else:
-            with transaction.atomic():
-                self.assertRaises(IntegrityError, obj.save)
+            with transaction.atomic(), self.assertRaises(IntegrityError):
+                obj.save()
         obj = NullableJSONModel.objects.create(value=None)
         obj = NullableJSONModel.objects.get(id=obj.id)
         self.assertIsNone(obj.value)
