@@ -149,7 +149,8 @@ class TestSerialization(SimpleTestCase):
 class TestSaveLoad(TestCase):
     def test_none_value(self):
         obj = JSONModel(value=None)
-        # Oracle backend uses empty string instead of null
+        # Oracle backend uses empty string instead of SQL NULL,
+        # so it doesn't violate IS NOT NULL constraint.
         if connection.vendor == 'oracle':
             obj.save()
             obj = JSONModel.objects.get(id=obj.id)
