@@ -1081,6 +1081,14 @@ of ``JSONField``.
     of the JSON which allows indexing. The trade-off is a small additional cost
     on writing to the ``jsonb`` field. ``JSONField`` uses ``jsonb``.
 
+.. note::
+
+    Using the field with SQLite requires the
+    `JSON1 <https://www.sqlite.org/json1.html>`_ extension installed. Most
+    Linux distributions already have the extension enabled in their SQLite
+    packages by default. If you're on Windows or other systems, make sure the
+    extension is properly installed and enabled.
+
 ``NullBooleanField``
 --------------------
 
