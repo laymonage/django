@@ -89,8 +89,8 @@ class TestFormField(SimpleTestCase):
 
     def test_has_changed(self):
         field = forms.JSONField()
-        self.assertTrue(field.has_changed({'a': True}, '{"a": 1}'))
-        self.assertFalse(field.has_changed({'a': 1, 'b': 2}, '{"b": 2, "a": 1}'))
+        self.assertIs(field.has_changed({'a': True}, '{"a": 1}'), True)
+        self.assertIs(field.has_changed({'a': 1, 'b': 2}, '{"b": 2, "a": 1}'), False)
 
     def test_custom_encoder_decoder(self):
         value = {'uuid': uuid.UUID('{12345678-1234-5678-1234-567812345678}')}
