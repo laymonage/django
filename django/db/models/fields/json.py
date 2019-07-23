@@ -174,7 +174,7 @@ class DataContains(SimpleFunctionOperatorMixin, Lookup):
             compiler, connection, template="JSON_CONTAINS(%s, %s, '$')", flipped=flipped
         )
 
-    def as_sqlite(self, compiler, connection, flipped=False):
+    def as_sqlite(self, compiler, connection):
         lhs, lhs_params = self.process_lhs(compiler, connection)
         rhs = json.loads(self.rhs)
         if isinstance(rhs, dict):
