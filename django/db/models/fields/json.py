@@ -200,6 +200,8 @@ class DataContains(SimpleFunctionOperatorMixin, Lookup):
         lhs, lhs_params = self.process_lhs(compiler, connection)
         rhs = json.loads(self.rhs)
         if isinstance(rhs, dict):
+            if not rhs:
+                return "JSON_TYPE(%s, '$') = %%s" % lhs, ['object']
             conditions = []
             params = []
             for key, value in rhs.items():
@@ -215,9 +217,6 @@ class DataContains(SimpleFunctionOperatorMixin, Lookup):
                 conditions.append(template % lhs)
                 params.append('$.' + json.dumps(key))
                 params.append(val)
-            if not rhs:
-                conditions.append("JSON_TYPE(%s, '$') = %%s" % lhs)
-                params.append('object')
             return ' AND '.join(conditions), params
         else:
             return '%s = %%s' % lhs, [self.rhs]
