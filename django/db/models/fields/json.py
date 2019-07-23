@@ -174,6 +174,29 @@ class DataContains(SimpleFunctionOperatorMixin, Lookup):
             compiler, connection, template="JSON_CONTAINS(%s, %s, '$')", flipped=flipped
         )
 
+    def as_sqlite(self, compiler, connection, flipped=False):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs = json.loads(self.rhs)
+        if isinstance(rhs, dict):
+            conditions = []
+            params = []
+            for key, value in rhs.items():
+                if value is None:
+                    template = 'JSON_TYPE(%s, %%s) = %%s'
+                    val = 'null'
+                elif isinstance(value, (list, dict)):
+                    template = 'JSON_EXTRACT(%s, %%s) = JSON(%%s)'
+                    val = json.dumps(value)
+                else:
+                    template = 'JSON_EXTRACT(%s, %%s) = %%s'
+                    val = value
+                conditions.append(template % lhs)
+                params.append('$.' + json.dumps(key))
+                params.append(val)
+            return ' AND '.join(conditions), params
+        else:
+            return '%s = %%s' % lhs, [self.rhs]
+
 
 @JSONField.register_lookup
 class ContainedBy(DataContains):
