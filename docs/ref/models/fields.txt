@@ -1073,8 +1073,7 @@ If you give the field a :attr:`~django.db.models.Field.default`, ensure
 it's an immutable object, such as a ``str``, or a callable object that returns
 a fresh mutable object each time, such as ``dict`` or a function. Providing a
 mutable default object like ``default={}`` or ``default=[]`` shares the one
-object between all model instances. There is a system check to guard against
-this.
+object between all model instances. There is a system check for this.
 
 .. note::
 
