@@ -1,7 +1,7 @@
 import json
 
 from django import forms
-from django.core import exceptions
+from django.core import checks, exceptions
 from django.db import connection as builtin_connection
 from django.db.models import Func, Value, lookups
 from django.db.models.lookups import (
@@ -22,10 +22,25 @@ class JSONField(CheckFieldDefaultMixin, Field):
     _default_hint = ('dict', '{}')
 
     def __init__(self, encoder=None, decoder=None, default=dict, *args, **kwargs):
-        if not builtin_connection.features.supports_json:
-            raise NotSupportedError(_('JSONField is not supported by this database backend.'))
         self.encoder, self.decoder = encoder, decoder
         super().__init__(default=default, *args, **kwargs)
+
+    def check(self, **kwargs):
+        errors = super().check(**kwargs)
+        errors.extend(self._check_json_support())
+        return errors
+
+    @classmethod
+    def _check_json_support(cls):
+        errors = []
+        if not builtin_connection.features.supports_json:
+            errors.append(
+                checks.Error(
+                    _('JSONField is not supported by this database backend.'),
+                    obj=cls
+                )
+            )
+        return errors
 
     def deconstruct(self):
         name, path, args, kwargs = super().deconstruct()
