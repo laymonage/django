@@ -362,8 +362,6 @@ class KeyTransformTextLookupMixin:
             raise TypeError(_(
                 'Transform should be an instance of KeyTransform in order to use this lookup.'
             ))
-        if default_connection.vendor == 'postgresql':
-            KeyTextTransform.output_field = TextField()
         key_text_transform = KeyTextTransform(
             key_transform.key_name, *key_transform.source_expressions, **key_transform.extra
         )
@@ -373,6 +371,8 @@ class KeyTransformTextLookupMixin:
         lhs, lhs_params = super().process_lhs(compiler, connection)
         if connection.vendor == 'mysql':
             return 'JSON_UNQUOTE(%s)' % lhs, lhs_params
+        elif connection.vendor == 'postgresql':
+            self.output_field = TextField()
         return lhs, lhs_params
 
 
