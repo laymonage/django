@@ -15,11 +15,9 @@
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': 'file:memorydb_default?mode=memory&cache=shared',
     },
     'other': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': 'file:memorydb_other?mode=memory&cache=shared',
     }
 }
 
