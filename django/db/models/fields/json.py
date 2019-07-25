@@ -1,8 +1,9 @@
 import json
 
 from django import forms
+from django.conf import settings
 from django.core import checks, exceptions
-from django.db import connection as default_connection
+from django.db import connections
 from django.db.models import Func, Value, lookups
 from django.db.models.lookups import (
     FieldGetDbPrepValueMixin, Lookup, Transform,
@@ -34,13 +35,18 @@ class JSONField(CheckFieldDefaultMixin, Field):
     @classmethod
     def _check_json_support(cls):
         errors = []
-        if not default_connection.features.supports_json_field:
-            errors.append(
-                checks.Error(
-                    'JSONField is not supported by this database backend.',
-                    obj=cls
+        for db in settings.DATABASES:
+            connection = connections[db]
+            if not connection.features.supports_json_field:
+                errors.append(
+                    checks.Error(
+                        'This version of %s does not support JSONField.' % connection.display_name,
+                        hint=(
+                            'See the documentation of JSONField for supported database versions.'
+                        ),
+                        obj=cls
+                    )
                 )
-            )
         return errors
 
     def deconstruct(self):
