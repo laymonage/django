@@ -130,9 +130,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'TimeField': 'time(6)',
         'UUIDField': 'char(32)',
     }
-    data_type_check_constraints = {
-        'JSONField': 'JSON_VALID(%(qn_column)s)',
-    }
 
     # For these data types:
     # - MySQL and MariaDB < 10.2.1 don't accept default values and implicitly
@@ -345,6 +342,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             return {
                 'PositiveIntegerField': '`%(column)s` >= 0',
                 'PositiveSmallIntegerField': '`%(column)s` >= 0',
+                'JSONField': 'JSON_VALID(%(column)s)',
             }
         return {}
 
