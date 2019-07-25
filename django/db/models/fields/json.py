@@ -37,7 +37,7 @@ class JSONField(CheckFieldDefaultMixin, Field):
         if not default_connection.features.supports_json_field:
             errors.append(
                 checks.Error(
-                    _('JSONField is not supported by this database backend.'),
+                    'JSONField is not supported by this database backend.',
                     obj=cls
                 )
             )
@@ -125,7 +125,7 @@ class SimpleFunctionOperatorMixin(FieldGetDbPrepValueMixin):
 
     def as_sql(self, compiler, connection):
         raise NotSupportedError(
-            _('%s lookup is not supported by this database backend.' % self.lookup_name)
+            '%s lookup is not supported by this database backend.' % self.lookup_name
         )
 
 
@@ -350,9 +350,9 @@ class KeyTransformTextLookupMixin:
     """
     def __init__(self, key_transform, *args, **kwargs):
         if not isinstance(key_transform, KeyTransform):
-            raise TypeError(_(
+            raise TypeError(
                 'Transform should be an instance of KeyTransform in order to use this lookup.'
-            ))
+            )
         key_text_transform = KeyTextTransform(
             key_transform.key_name, *key_transform.source_expressions, **key_transform.extra
         )
