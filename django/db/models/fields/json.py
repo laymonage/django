@@ -265,14 +265,7 @@ class JSONExact(lookups.Exact):
             if rhs == '%s' and rhs_params == [None]:
                 # Need to use JSON_TYPE instead of JSON_EXTRACT
                 # to determine JSON null values.
-                previous = self.lhs
-                while isinstance(previous, KeyTransform):
-                    previous = previous.lhs
-                lhs, params = compiler.compile(previous)
-                if previous == self.lhs:  # No KeyTransform was applied
-                    lhs = "JSON_TYPE(%s, '$')" % lhs
-                else:
-                    lhs = 'JSON_TYPE(%s, %%s)' % lhs
+                lhs = "JSON_TYPE(%s, '$')" % lhs
         return lhs, lhs_params
 
     def process_rhs(self, compiler, connection):
@@ -392,6 +385,18 @@ class CaseInsensitiveMixin:
 
 @KeyTransform.register_lookup
 class KeyTransformExact(JSONExact):
+    def process_lhs(self, compiler, connection):
+        lhs, lhs_params = super().process_lhs(compiler, connection)
+        if connection.vendor == 'sqlite':
+            rhs, rhs_params = super().process_rhs(compiler, connection)
+            if rhs == '%s' and rhs_params == ['null']:
+                previous = self.lhs
+                while isinstance(previous, KeyTransform):
+                    previous = previous.lhs
+                lhs, params = compiler.compile(previous)
+                lhs = 'JSON_TYPE(%s, %%s)' % lhs
+        return lhs, lhs_params
+
     def process_rhs(self, compiler, connection):
         rhs, rhs_params = super().process_rhs(compiler, connection)
         if connection.vendor == 'oracle':
