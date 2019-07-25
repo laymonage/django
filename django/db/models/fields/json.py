@@ -326,14 +326,12 @@ class KeyTransform(Transform):
     def as_postgresql(self, compiler, connection):
         lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
         if len(key_transforms) > 1:
-            return '(%s %s %%s)' % (lhs, self.postgres_nested_operator), [key_transforms] + params
+            return "(%s %s %%s)" % (lhs, self.postgres_nested_operator), [key_transforms] + params
         try:
-            int(self.key_name)
+            lookup = int(self.key_name)
         except ValueError:
-            lookup = "'%s'" % self.key_name
-        else:
-            lookup = str(self.key_name)
-        return '(%s %s %s)' % (lhs, self.postgres_operator, lookup), params
+            lookup = self.key_name
+        return '(%s %s %%s)' % (lhs, self.postgres_operator), [lookup] + params
 
     def as_sqlite(self, compiler, connection):
         return self.as_mysql(compiler, connection)
