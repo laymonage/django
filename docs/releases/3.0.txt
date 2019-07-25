@@ -75,6 +75,8 @@ models using the
 :attr:`Meta.constraints <django.db.models.Options.constraints>` option.
 Cross-DB JSONField
 ------------------
+JSONField for all supported database backends
+---------------------------------------------
 
 Django now includes a :class:`~django.db.models.JSONField` that works on all
 supported database backends. It features support for custom JSON encoder and
