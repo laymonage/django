@@ -2,7 +2,7 @@ import json
 
 from django import forms
 from django.core import checks, exceptions
-from django.db import connection as builtin_connection
+from django.db import connection as default_connection
 from django.db.models import Func, Value, lookups
 from django.db.models.lookups import (
     FieldGetDbPrepValueMixin, Lookup, Transform,
@@ -26,14 +26,15 @@ class JSONField(CheckFieldDefaultMixin, Field):
         super().__init__(default=default, *args, **kwargs)
 
     def check(self, **kwargs):
-        errors = super().check(**kwargs)
-        errors.extend(self._check_json_support())
-        return errors
+        return [
+            *super().check(**kwargs),
+            *self._check_json_support(),
+        ]
 
     @classmethod
     def _check_json_support(cls):
         errors = []
-        if not builtin_connection.features.supports_json:
+        if not default_connection.features.supports_json:
             errors.append(
                 checks.Error(
                     _('JSONField is not supported by this database backend.'),
@@ -55,7 +56,7 @@ class JSONField(CheckFieldDefaultMixin, Field):
     def from_db_value(self, value, expression, connection):
         if value is None:
             return value
-        elif connection.vendor == 'oracle' and value == '':
+        elif connection.features.interprets_empty_strings_as_nulls and value == '':
             return None
         else:
             try:
@@ -158,7 +159,6 @@ class HasKeyLookup(SimpleFunctionOperatorMixin, Lookup):
 class HasKey(HasKeyLookup):
     lookup_name = 'has_key'
     postgres_operator = '?'
-
     prepare_rhs = False
 
 
@@ -262,7 +262,7 @@ class JSONExact(lookups.Exact):
         lhs, lhs_params = super().process_lhs(compiler, connection)
         if connection.vendor == 'sqlite':
             rhs, rhs_params = super().process_rhs(compiler, connection)
-            if (rhs, rhs_params) == ('%s', [None]):
+            if rhs == '%s' and rhs_params == [None]:
                 # Need to use JSON_TYPE instead of JSON_EXTRACT
                 # to determine JSON null values.
                 previous = self.lhs
@@ -278,7 +278,7 @@ class JSONExact(lookups.Exact):
     def process_rhs(self, compiler, connection):
         rhs, rhs_params = super().process_rhs(compiler, connection)
         # Treat None lookup values as null.
-        if (rhs, rhs_params) == ('%s', [None]):
+        if rhs == '%s' and rhs_params == [None]:
             rhs, rhs_params = ('%s', ['null'])
         if connection.vendor == 'mysql':
             func = []
@@ -306,7 +306,6 @@ class KeyTransform(Transform):
         while isinstance(previous, KeyTransform):
             key_transforms.insert(0, previous.key_name)
             previous = previous.lhs
-
         lhs, params = compiler.compile(previous)
         return lhs, params, key_transforms
 
@@ -334,14 +333,14 @@ class KeyTransform(Transform):
     def as_postgresql(self, compiler, connection):
         lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
         if len(key_transforms) > 1:
-            return "(%s %s %%s)" % (lhs, self.postgres_nested_operator), [key_transforms] + params
+            return '(%s %s %%s)' % (lhs, self.postgres_nested_operator), [key_transforms] + params
         try:
             int(self.key_name)
         except ValueError:
             lookup = "'%s'" % self.key_name
         else:
-            lookup = "%s" % self.key_name
-        return "(%s %s %s)" % (lhs, self.postgres_operator, lookup), params
+            lookup = str(self.key_name)
+        return '(%s %s %s)' % (lhs, self.postgres_operator, lookup), params
 
     def as_sqlite(self, compiler, connection):
         return self.as_mysql(compiler, connection)
@@ -359,10 +358,12 @@ class KeyTransformTextLookupMixin:
     text and performing the lookup on the resulting representation.
     """
     def __init__(self, key_transform, *args, **kwargs):
-        assert isinstance(key_transform, KeyTransform)
-        if builtin_connection.vendor == 'postgresql':
+        if not isinstance(key_transform, KeyTransform):
+            raise TypeError(_(
+                'Transform should be an instance of KeyTransform in order to use this lookup.'
+            ))
+        if default_connection.vendor == 'postgresql':
             KeyTextTransform.output_field = TextField()
-
         key_text_transform = KeyTextTransform(
             key_transform.key_name, *key_transform.source_expressions, **key_transform.extra
         )
