@@ -34,7 +34,7 @@ class JSONField(CheckFieldDefaultMixin, Field):
     @classmethod
     def _check_json_support(cls):
         errors = []
-        if not default_connection.features.supports_json:
+        if not default_connection.features.supports_json_field:
             errors.append(
                 checks.Error(
                     _('JSONField is not supported by this database backend.'),

@@ -47,11 +47,10 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     supports_over_clause = Database.sqlite_version_info >= (3, 25, 0)
 
     @cached_property
-    def supports_json(self):
+    def supports_json_field(self):
         try:
             with self.connection.cursor() as cursor, transaction.atomic():
                 cursor.execute("SELECT JSON('\"test\"')")
         except OperationalError:
             return False
-        else:
-            return True
+        return True
