@@ -312,10 +312,11 @@ class KeyTransform(Transform):
         for key_transform in key_transforms:
             try:
                 num = int(key_transform)
-                path.append('[{}]'.format(num))
             except ValueError:  # non-integer
                 path.append('.')
                 path.append(json.dumps(key_transform))
+            else:
+                path.append('[{}]'.format(num))
         return ''.join(path)
 
     def as_oracle(self, compiler, connection):
