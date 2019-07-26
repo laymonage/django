@@ -482,132 +482,14 @@ using in conjunction with lookups on
     its Python native format: dictionaries, lists, strings, numbers, booleans
     and ``None``.
 
-    .. attribute:: encoder
+.. deprecated:: 3.0
 
-        An optional JSON-encoding class to serialize data types not supported
-        by the standard JSON serializer (``datetime``, ``uuid``, etc.). For
-        example, you can use the
-        :class:`~django.core.serializers.json.DjangoJSONEncoder` class or any
-        other :py:class:`json.JSONEncoder` subclass.
+    A new :class:`~django.db.models.JSONField` that works on all suported
+    database backends is available starting with Django 3.0. It is advised to
+    migrate and use the new JSONField. For now, this PostgreSQL-only
+    ``JSONField`` is left as a reference to the new one and may be removed in
+    future releases.
 
-        When the value is retrieved from the database, it will be in the format
-        chosen by the custom encoder (most often a string), so you'll need to
-        take extra steps to convert the value back to the initial data type
-        (:meth:`Model.from_db() <django.db.models.Model.from_db>` and
-        :meth:`Field.from_db_value() <django.db.models.Field.from_db_value>`
-        are two possible hooks for that purpose). Your deserialization may need
-        to account for the fact that you can't be certain of the input type.
-        For example, you run the risk of returning a ``datetime`` that was
-        actually a string that just happened to be in the same format chosen
-        for ``datetime``\s.
-
-    If you give the field a :attr:`~django.db.models.Field.default`, ensure
-    it's a callable such as ``dict`` (for an empty default) or a callable that
-    returns a dict (such as a function). Incorrectly using ``default={}``
-    creates a mutable default that is shared between all instances of
-    ``JSONField``.
-
-.. note::
-
-    PostgreSQL has two native JSON based data types: ``json`` and ``jsonb``.
-    The main difference between them is how they are stored and how they can be
-    queried. PostgreSQL's ``json`` field is stored as the original string
-    representation of the JSON and must be decoded on the fly when queried
-    based on keys. The ``jsonb`` field is stored based on the actual structure
-    of the JSON which allows indexing. The trade-off is a small additional cost
-    on writing to the ``jsonb`` field. ``JSONField`` uses ``jsonb``.
-
-Querying ``JSONField``
-----------------------
-
-We will use the following example model::
-
-    from django.contrib.postgres.fields import JSONField
-    from django.db import models
-
-    class Dog(models.Model):
-        name = models.CharField(max_length=200)
-        data = JSONField()
-
-        def __str__(self):
-            return self.name
-
-.. fieldlookup:: jsonfield.key
-
-Key, index, and path lookups
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-To query based on a given dictionary key, simply use that key as the lookup
-name::
-
-    >>> Dog.objects.create(name='Rufus', data={
-    ...     'breed': 'labrador',
-    ...     'owner': {
-    ...         'name': 'Bob',
-    ...         'other_pets': [{
-    ...             'name': 'Fishy',
-    ...         }],
-    ...     },
-    ... })
-    >>> Dog.objects.create(name='Meg', data={'breed': 'collie', 'owner': None})
-
-    >>> Dog.objects.filter(data__breed='collie')
-    <QuerySet [<Dog: Meg>]>
-
-Multiple keys can be chained together to form a path lookup::
-
-    >>> Dog.objects.filter(data__owner__name='Bob')
-    <QuerySet [<Dog: Rufus>]>
-
-If the key is an integer, it will be interpreted as an index lookup in an
-array::
-
-    >>> Dog.objects.filter(data__owner__other_pets__0__name='Fishy')
-    <QuerySet [<Dog: Rufus>]>
-
-If the key you wish to query by clashes with the name of another lookup, use
-the :lookup:`jsonfield.contains` lookup instead.
-
-If only one key or index is used, the SQL operator ``->`` is used. If multiple
-operators are used then the ``#>`` operator is used.
-
-To query for ``null`` in JSON data, use ``None`` as a value::
-
-    >>> Dog.objects.filter(data__owner=None)
-    <QuerySet [<Dog: Meg>]>
-
-To query for missing keys, use the ``isnull`` lookup::
-
-    >>> Dog.objects.create(name='Shep', data={'breed': 'collie'})
-    >>> Dog.objects.filter(data__owner__isnull=True)
-    <QuerySet [<Dog: Shep>]>
-
-.. warning::
-
-    Since any string could be a key in a JSON object, any lookup other than
-    those listed below will be interpreted as a key lookup. No errors are
-    raised. Be extra careful for typing mistakes, and always check your queries
-    work as you intend.
-
-Containment and key operations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. fieldlookup:: jsonfield.contains
-.. fieldlookup:: jsonfield.contained_by
-.. fieldlookup:: jsonfield.has_key
-.. fieldlookup:: jsonfield.has_any_keys
-.. fieldlookup:: jsonfield.has_keys
-
-:class:`~django.contrib.postgres.fields.JSONField` shares lookups relating to
-containment and keys with :class:`~django.contrib.postgres.fields.HStoreField`.
-
-- :lookup:`contains <hstorefield.contains>` (accepts any JSON rather than
-  just a dictionary of strings)
-- :lookup:`contained_by <hstorefield.contained_by>` (accepts any JSON
-  rather than just a dictionary of strings)
-- :lookup:`has_key <hstorefield.has_key>`
-- :lookup:`has_any_keys <hstorefield.has_any_keys>`
-- :lookup:`has_keys <hstorefield.has_keys>`
 
 .. _range-fields:
 
