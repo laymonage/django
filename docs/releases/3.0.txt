@@ -73,8 +73,7 @@ The new :class:`~django.contrib.postgres.constraints.ExclusionConstraint` class
 enable adding exclusion constraints on PostgreSQL. Constraints are added to
 models using the
 :attr:`Meta.constraints <django.db.models.Options.constraints>` option.
-Cross-DB JSONField
-------------------
+
 JSONField for all supported database backends
 ---------------------------------------------
 
