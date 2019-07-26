@@ -1080,6 +1080,11 @@ To query ``JSONField`` in the database, see
 
 .. note::
 
+    Oracle Database supports storing JSON data using SQL data types
+    ``VARCHAR2``, ``CLOB``, and ``BLOB``. ``JSONField`` uses ``CLOB``.
+
+.. note::
+
     PostgreSQL has two native JSON based data types: ``json`` and ``jsonb``.
     The main difference between them is how they are stored and how they can be
     queried. PostgreSQL's ``json`` field is stored as the original string
@@ -1088,10 +1093,18 @@ To query ``JSONField`` in the database, see
     of the JSON which allows indexing. The trade-off is a small additional cost
     on writing to the ``jsonb`` field. ``JSONField`` uses ``jsonb``.
 
-.. note::
+.. admonition:: MariaDB users
 
-    Using the field with SQLite requires the
-    `JSON1 <https://www.sqlite.org/json1.html>`_ extension installed. Most
+    Requires MariaDB 10.2.7 or later.
+
+.. admonition:: MySQL users
+
+    Requires MySQL 5.7.8 or later.
+
+.. admonition:: SQLite users
+
+    Requires SQLite 3.9.0 or later with the
+    `JSON1 <https://www.sqlite.org/json1.html>`_ extension enabled. Most
     Linux distributions already have the extension enabled in their SQLite
     packages by default. If you're on Windows or other systems, make sure the
     extension is properly installed and enabled.
