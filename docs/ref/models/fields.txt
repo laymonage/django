@@ -214,7 +214,7 @@ The default can't be a mutable object (model instance, ``list``, ``set``, etc.),
 as a reference to the same instance of that object would be used as the default
 value in all new model instances. Instead, wrap the desired default in a
 callable. For example, if you want to specify a default ``dict`` for
-:class:`~django.contrib.postgres.fields.JSONField`, use a function::
+:class:`~django.db.models.JSONField`, use a function::
 
     def contact_default():
         return {"email": "to1@example.com"}
