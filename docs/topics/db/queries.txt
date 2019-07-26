@@ -842,7 +842,7 @@ array::
 If the key you wish to query by clashes with the name of another lookup, use
 the :lookup:`jsonfield.contains` lookup instead.
 
-.. notes::
+.. note::
 
     The transform examples given above implicitly use the :lookup:`exact`
     lookup. Key, index, and path transforms can also be chained with
@@ -869,7 +869,7 @@ To query for missing keys, use the ``isnull`` lookup::
     raised. Be extra careful for typing mistakes, and always check your queries
     work as you intend.
 
-.. notes::
+.. note::
 
     On PostgreSQL, if only one key or index is used, the SQL operator ``->`` is
     used. If multiple operators are used then the ``#>`` operator is used.
