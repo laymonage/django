@@ -3642,3 +3642,217 @@ operate on vegetarian pizzas.
 * :meth:`.QuerySet.only` and :meth:`~.QuerySet.prefetch_related`.
 * A :class:`~django.contrib.contenttypes.fields.GenericForeignKey`
   inherited from a parent model.
+
+``JSONField``-specific lookups
+------------------------------
+
+Lookups implementation is different in :class:`~django.db.models.JSONField`,
+mainly due to the existence of key transformations. To demonstrate, we will
+use the following example model::
+
+    from django.db import models
+
+    class Dog(models.Model):
+        name = models.CharField(max_length=200)
+        data = models.JSONField()
+
+        def __str__(self):
+            return self.name
+
+.. fieldlookup:: jsonfield.key
+
+Key, index, and path transforms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To query based on a given dictionary key, simply use that key as the lookup
+name::
+
+    >>> Dog.objects.create(name='Rufus', data={
+    ...     'breed': 'labrador',
+    ...     'owner': {
+    ...         'name': 'Bob',
+    ...         'other_pets': [{
+    ...             'name': 'Fishy',
+    ...         }],
+    ...     },
+    ... })
+    >>> Dog.objects.create(name='Meg', data={'breed': 'collie', 'owner': None})
+
+    >>> Dog.objects.filter(data__breed='collie')
+    <QuerySet [<Dog: Meg>]>
+
+Multiple keys can be chained together to form a path transform::
+
+    >>> Dog.objects.filter(data__owner__name='Bob')
+    <QuerySet [<Dog: Rufus>]>
+
+If the key is an integer, it will be interpreted as an index transform in an
+array::
+
+    >>> Dog.objects.filter(data__owner__other_pets__0__name='Fishy')
+    <QuerySet [<Dog: Rufus>]>
+
+If the key you wish to query by clashes with the name of another lookup, use
+the :lookup:`jsonfield.contains` lookup instead.
+
+To query for ``null`` in JSON data, use ``None`` as a value::
+
+    >>> Dog.objects.filter(data__owner=None)
+    <QuerySet [<Dog: Meg>]>
+
+To query for missing keys, use the ``isnull`` lookup::
+
+    >>> Dog.objects.create(name='Shep', data={'breed': 'collie'})
+    >>> Dog.objects.filter(data__owner__isnull=True)
+    <QuerySet [<Dog: Shep>]>
+
+.. warning::
+
+    Since any string could be a key in a JSON object, any lookup other than
+    those listed below will be interpreted as a key lookup. No errors are
+    raised. Be extra careful for typing mistakes, and always check your queries
+    work as you intend.
+
+.. notes::
+
+    On PostgreSQL, if only one key or index is used, the SQL operator ``->`` is
+    used. If multiple operators are used then the ``#>`` operator is used.
+
+Containment and key operations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. fieldlookup:: jsonfield.contains
+
+``contains``
+~~~~~~~~~~~~
+
+The :lookup:`contains` lookup is overridden on ``JSONField``. The returned
+objects are those where the given ``dict`` of key-value pairs are all
+contained in the top-level of the field. For example::
+
+    >>> Dog.objects.create(name='Rufus', data={'breed': 'labrador', 'owner': 'Bob'})
+    >>> Dog.objects.create(name='Meg', data={'breed': 'collie', 'owner': 'Bob'})
+    >>> Dog.objects.create(name='Fred', data={})
+
+    >>> Dog.objects.filter(data__contains={'owner': 'Bob'})
+    <QuerySet [<Dog: Rufus>, <Dog: Meg>]>
+
+    >>> Dog.objects.filter(data__contains={'breed': 'collie'})
+    <QuerySet [<Dog: Meg>]>
+
+.. note::
+
+    On PostgreSQL, the implementation uses the SQL operator ``@>``. On MySQL
+    and MariaDB, it uses the SQL function ``JSON_CONTAINS``. On Oracle
+    Database, it uses the SQL function ``JSON_QUERY`` and ``JSON_VALUE``.
+    On SQLite, it uses the SQL function ``JSON_EXTRACT`` and ``JSON_TYPE``.
+
+.. admonition:: Oracle and SQLite users
+
+    Since Oracle Database and SQLite don't provide a built-in function to
+    support this lookup, the implementation is actually similar to key
+    lookups chained together with the SQL operator ``AND``.
+
+.. fieldlookup:: jsonfield.contained_by
+
+``contained_by``
+~~~~~~~~~~~~~~~~
+
+This is the inverse of the :lookup:`contains <jsonfield.contains>` lookup -
+the objects returned will be those where the key-value pairs on the object are
+a subset of those in the value passed. For
+example::
+
+    >>> Dog.objects.create(name='Rufus', data={'breed': 'labrador', 'owner': 'Bob'})
+    >>> Dog.objects.create(name='Meg', data={'breed': 'collie', 'owner': 'Bob'})
+    >>> Dog.objects.create(name='Fred', data={})
+
+    >>> Dog.objects.filter(data__contained_by={'breed': 'collie', 'owner': 'Bob'})
+    <QuerySet [<Dog: Meg>, <Dog: Fred>]>
+
+    >>> Dog.objects.filter(data__contained_by={'breed': 'collie'})
+    <QuerySet [<Dog: Fred>]>
+
+.. note::
+
+    On PostgreSQL, the implementation uses the SQL operator ``<@``. On MySQL
+    and MariaDB, it uses the SQL function ``JSON_CONTAINS`` like ``contains``
+    lookup but with the arguments switched.
+
+.. admonition:: Oracle and SQLite users
+
+    Due to the limitation on Oracle and SQLite database backends, this lookup
+    is not supported.
+
+.. fieldlookup:: jsonfield.has_key
+
+``has_key``
+~~~~~~~~~~~
+
+Returns objects where the given key is in the top-level of the data. For
+example::
+
+    >>> Dog.objects.create(name='Rufus', data={'breed': 'labrador'})
+    >>> Dog.objects.create(name='Meg', data={'breed': 'collie', 'owner': 'Bob'})
+
+    >>> Dog.objects.filter(data__has_key='owner')
+    <QuerySet [<Dog: Meg>]>
+
+.. note::
+
+    On PostgreSQL, the implementation uses the SQL operator ``?``. On MySQL
+    and MariaDB, it uses the SQL function ``JSON_CONTAINS_PATH``. On Oracle
+    Database, it uses the SQL function ``JSON_EXISTS``. On SQLite, it uses
+    the SQL function ``JSON_TYPE``.
+
+.. admonition:: SQLite users
+
+    The implementation uses ``JSON_TYPE`` along with ``IS NOT NULL`` clause.
+    The function ``JSON_EXTRACT`` is not used because it also returns SQL
+    ``NULL`` for JSON value ``null``, which makes it impossible to
+    differentiate between a missing key and an existing key with a ``null``
+    value.
+
+
+.. fieldlookup:: jsonfield.has_any_keys
+
+``has_any_keys``
+~~~~~~~~~~~~~~~~
+
+Returns objects where any of the given keys are in the top-level of the data.
+For example::
+
+    >>> Dog.objects.create(name='Rufus', data={'breed': 'labrador'})
+    >>> Dog.objects.create(name='Meg', data={'owner': 'Bob'})
+    >>> Dog.objects.create(name='Fred', data={})
+
+    >>> Dog.objects.filter(data__has_any_keys=['owner', 'breed'])
+    <QuerySet [<Dog: Rufus>, <Dog: Meg>]>
+
+.. note::
+
+    On PostgreSQL, the implementation uses the SQL operator ``?|``. On all
+    other database backends, the implementation is similar to
+    :lookup:`contains <jsonfield.contains>` lookup and each key is joined
+    using the SQL ``OR`` operator.
+
+.. fieldlookup:: jsonfield.has_keys
+
+``has_keys``
+~~~~~~~~~~~~
+
+Returns objects where all of the given keys are in the top-level of the data.
+For example::
+
+    >>> Dog.objects.create(name='Rufus', data={})
+    >>> Dog.objects.create(name='Meg', data={'breed': 'collie', 'owner': 'Bob'})
+
+    >>> Dog.objects.filter(data__has_keys=['breed', 'owner'])
+    <QuerySet [<Dog: Meg>]>
+
+.. note::
+
+    On PostgreSQL, the implementation uses the SQL operator ``?&``. On all
+    other database backends, the implementation is similar to
+    :lookup:`contains <jsonfield.contains>` lookup and each key is joined
+    using the SQL ``AND`` operator.
