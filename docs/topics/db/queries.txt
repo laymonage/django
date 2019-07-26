@@ -842,6 +842,15 @@ array::
 If the key you wish to query by clashes with the name of another lookup, use
 the :lookup:`jsonfield.contains` lookup instead.
 
+.. notes::
+
+    The transform examples given above implicitly use the :lookup:`exact`
+    lookup. Key, index, and path transforms can also be chained with
+    :lookup:`iexact`, :lookup:`contains`, :lookup:`icontains`,
+    :lookup:`startswith`, :lookup:`istartswith`, :lookup:`endswith`,
+    :lookup:`iendswith`, :lookup:`regex`, :lookup:`iregex`, :lookup:`lt`,
+    :lookup:`lte`, :lookup:`gt`, and :lookup:`gte` lookups.
+
 To query for ``null`` in JSON data, use ``None`` as a value::
 
     >>> Dog.objects.filter(data__owner=None)
@@ -886,6 +895,11 @@ contained in the top-level of the field. For example::
 
     >>> Dog.objects.filter(data__contains={'breed': 'collie'})
     <QuerySet [<Dog: Meg>]>
+
+.. note::
+
+    This lookup is only overridden on ``JSONField``. It is not overridden on
+    key, index, and path transforms.
 
 .. note::
 
