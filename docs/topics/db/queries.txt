@@ -790,6 +790,8 @@ being evaluated and therefore populate the cache::
     Simply printing the queryset will not populate the cache. This is because
     the call to ``__repr__()`` only returns a slice of the entire queryset.
 
+.. _querying-jsonfield:
+
 Querying ``JSONField``
 ======================
 

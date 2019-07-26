@@ -1075,6 +1075,9 @@ a fresh mutable object each time, such as ``dict`` or a function. Providing a
 mutable default object like ``default={}`` or ``default=[]`` shares the one
 object between all model instances. There is a system check for this.
 
+To query ``JSONField`` in the database, see
+:ref:`Querying JSONField <querying-jsonfield>`.
+
 .. note::
 
     PostgreSQL has two native JSON based data types: ``json`` and ``jsonb``.
