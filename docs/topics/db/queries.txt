@@ -840,7 +840,7 @@ array::
     <QuerySet [<Dog: Rufus>]>
 
 If the key you wish to query by clashes with the name of another lookup, use
-the :lookup:`jsonfield.contains` lookup instead.
+the :lookup:`contains <jsonfield.contains>` lookup instead.
 
 .. note::
 
