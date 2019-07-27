@@ -40,7 +40,9 @@ class JSONField(CheckFieldDefaultMixin, Field):
             if not connection.features.supports_json_field:
                 errors.append(
                     checks.Error(
-                        'This version of %s does not support JSONField.' % connection.display_name,
+                        "Connection '%s' uses a version of %s that does not support JSONField." % (
+                            db, connection.display_name
+                        ),
                         hint=(
                             'See the documentation of JSONField for supported database versions.'
                         ),
