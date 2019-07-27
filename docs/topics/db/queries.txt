@@ -903,6 +903,14 @@ To query for missing keys, use the ``isnull`` lookup::
     raised. Be extra careful for typing mistakes, and always check your queries
     work as you intend.
 
+.. admonition:: MariaDB and Oracle users
+
+    Using :meth:`~django.db.models.query.QuerySet.order_by` on key, index,
+    or path transforms will sort the objects using the string representation
+    of the values. This is because MariaDB and Oracle Database do not provide
+    a function that converts JSON values into their equivalent SQL values.
+    Therefore, ordering by numerical JSON values does not work as expected.
+
 .. note::
 
     On PostgreSQL, if only one key or index is used, the SQL operator ``->`` is
