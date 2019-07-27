@@ -808,6 +808,38 @@ use the following example model::
         def __str__(self):
             return self.name
 
+As with other fields, storing ``None`` as the field's value will store it as
+SQL ``NULL``. While not recommended, it is possible to store JSON scalar
+``null`` instead of SQL ``NULL`` by using
+:meth:`Value('null') <django.db.models.Value>`. However, after retrieved from
+the database, the Python representation of the data is the same as SQL
+``NULL``, i.e. ``None``. Therefore, it can be hard to distinguish between the
+two.
+
+Note that this only applies to ``None`` as the top-level value of the field.
+If ``None`` is inside a :py:class:`list` or :py:class:`dict`, it will always
+be interpreted as JSON ``null``.
+
+When querying, ``None`` value will always be interpreted as JSON ``null``.
+To query for SQL ``NULL``, use :lookup:`isnull`.
+
+To illustrate::
+
+    >>> Dog.objects.create(name='Max', data=None)  # Stored as SQL NULL
+    >>> Dog.objects.create(name='Archie', data=Value('null'))  # Stored as JSON null
+
+    >>> Dog.objects.filter(data=None)
+    <QuerySet [<Dog: Archie>]>
+    >>> Dog.objects.filter(data=Value('null'))
+    <QuerySet [<Dog: Archie>]>
+    >>> Dog.objects.filter(data__isnull=True)
+    <QuerySet [<Dog: Max>]>
+
+.. note::
+
+    Storing JSON scalar ``null`` does not violate
+    :attr:`null=False <django.db.models.Field.null>`.
+
 .. fieldlookup:: jsonfield.key
 
 Key, index, and path transforms
