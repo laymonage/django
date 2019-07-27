@@ -145,7 +145,7 @@ class HasKeyLookup(SimpleFunctionOperatorMixin, Lookup):
         sql = template % lhs
         if self.logical_operator:
             # Add condition for each key.
-            sql = self.logical_operator.join([sql] * len(rhs_params))
+            sql = '(%s)' % self.logical_operator.join([sql] * len(rhs_params))
         return sql, lhs_params + rhs_params
 
     def as_mysql(self, compiler, connection):
