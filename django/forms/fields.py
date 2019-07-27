@@ -39,9 +39,8 @@ __all__ = (
     'RegexField', 'EmailField', 'FileField', 'ImageField', 'URLField',
     'BooleanField', 'NullBooleanField', 'ChoiceField', 'MultipleChoiceField',
     'ComboField', 'MultiValueField', 'FloatField', 'DecimalField',
-    'SplitDateTimeField', 'GenericIPAddressField', 'FilePathField',
+    'SplitDateTimeField', 'GenericIPAddressField', 'JSONField', 'FilePathField',
     'SlugField', 'TypedChoiceField', 'TypedMultipleChoiceField', 'UUIDField',
-    'JSONField',
 )
 
 
