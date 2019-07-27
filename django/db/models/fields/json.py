@@ -291,7 +291,36 @@ class JSONExact(lookups.Exact):
         return rhs, rhs_params
 
 
-class KeyTransform(Transform):
+def compile_json_path(key_transforms):
+    path = ['$']
+    for key_transform in key_transforms:
+        try:
+            num = int(key_transform)
+        except ValueError:  # non-integer
+            path.append('.')
+            path.append(json.dumps(key_transform))
+        else:
+            path.append('[{}]'.format(num))
+    return ''.join(path)
+
+
+class PreprocessLhsMixin:
+    """
+    Mixin for separating the original lhs from the applied key transforms.
+    """
+    def preprocess_lhs(self, compiler, connection, lhs_only=False):
+        if not lhs_only:
+            key_transforms = [self.key_name] if isinstance(self, KeyTransform) else []
+        previous = self.lhs
+        while isinstance(previous, KeyTransform):
+            if not lhs_only:
+                key_transforms.insert(0, previous.key_name)
+            previous = previous.lhs
+        lhs, params = compiler.compile(previous)
+        return (lhs, params, key_transforms) if not lhs_only else (lhs, params)
+
+
+class KeyTransform(PreprocessLhsMixin, Transform):
     postgres_operator = '->'
     postgres_nested_operator = '#>'
 
@@ -299,39 +328,18 @@ class KeyTransform(Transform):
         super().__init__(*args, **kwargs)
         self.key_name = key_name
 
-    def _preprocess_lhs(self, compiler, connection):
-        key_transforms = [self.key_name]
-        previous = self.lhs
-        while isinstance(previous, KeyTransform):
-            key_transforms.insert(0, previous.key_name)
-            previous = previous.lhs
-        lhs, params = compiler.compile(previous)
-        return lhs, params, key_transforms
-
     def as_mysql(self, compiler, connection):
-        lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
-        json_path = self.compile_json_path(key_transforms)
+        lhs, params, key_transforms = self.preprocess_lhs(compiler, connection)
+        json_path = compile_json_path(key_transforms)
         return 'JSON_EXTRACT(%s, %%s)' % lhs, params + [json_path]
 
-    def compile_json_path(self, key_transforms):
-        path = ['$']
-        for key_transform in key_transforms:
-            try:
-                num = int(key_transform)
-            except ValueError:  # non-integer
-                path.append('.')
-                path.append(json.dumps(key_transform))
-            else:
-                path.append('[{}]'.format(num))
-        return ''.join(path)
-
     def as_oracle(self, compiler, connection):
-        lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
-        json_path = self.compile_json_path(key_transforms)
+        lhs, params, key_transforms = self.preprocess_lhs(compiler, connection)
+        json_path = compile_json_path(key_transforms)
         return "COALESCE(JSON_QUERY(%s, '%s'), JSON_VALUE(%s, '%s'))" % ((lhs, json_path) * 2), params
 
     def as_postgresql(self, compiler, connection):
-        lhs, params, key_transforms = self._preprocess_lhs(compiler, connection)
+        lhs, params, key_transforms = self.preprocess_lhs(compiler, connection)
         if len(key_transforms) > 1:
             return "(%s %s %%s)" % (lhs, self.postgres_nested_operator), [key_transforms] + params
         try:
@@ -389,16 +397,35 @@ class CaseInsensitiveMixin:
 
 
 @KeyTransform.register_lookup
-class KeyTransformExact(JSONExact):
+class KeyTransformIsNull(PreprocessLhsMixin, lookups.IsNull):
+    def as_oracle(self, compiler, connection):
+        prev_lhs, prev_params, key_transforms = self.preprocess_lhs(compiler, connection)
+        json_path = compile_json_path(key_transforms)
+        if self.rhs:
+            return (
+                "(NOT JSON_EXISTS(%s, '%s') OR DBMS_LOB.SUBSTR(%s) IS NULL)" % (prev_lhs, json_path, prev_lhs),
+                prev_params
+            )
+        else:
+            return "JSON_EXISTS(%s, '%s')" % (prev_lhs, json_path), prev_params
+
+    def as_sqlite(self, compiler, connection):
+        lhs, lhs_params = super().process_lhs(compiler, connection)
+        prev_lhs, prev_params = self.preprocess_lhs(compiler, connection, lhs_only=True)
+        if self.rhs:
+            return 'JSON_TYPE(%s, %%s) IS NULL' % prev_lhs, lhs_params
+        else:
+            return 'JSON_TYPE(%s, %%s) IS NOT NULL' % prev_lhs, lhs_params
+
+
+@KeyTransform.register_lookup
+class KeyTransformExact(PreprocessLhsMixin, JSONExact):
     def process_lhs(self, compiler, connection):
         lhs, lhs_params = super().process_lhs(compiler, connection)
         if connection.vendor == 'sqlite':
             rhs, rhs_params = super().process_rhs(compiler, connection)
             if rhs == '%s' and rhs_params == ['null']:
-                previous = self.lhs
-                while isinstance(previous, KeyTransform):
-                    previous = previous.lhs
-                lhs, params = compiler.compile(previous)
+                lhs, params = self.preprocess_lhs(compiler, connection, lhs_only=True)
                 lhs = 'JSON_TYPE(%s, %%s)' % lhs
         return lhs, lhs_params
 

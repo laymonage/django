@@ -427,7 +427,7 @@ class TestQuerying(TestCase):
         self.assertSequenceEqual(query, [('m',), (None,)])
 
     def test_isnull_key(self):
-        # key__isnull works the same as has_key='key'.
+        # key__isnull=False works the same as has_key='key'.
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__a__isnull=True),
             self.scalar_data + self.object_data[:2] + self.object_data[4:]
@@ -435,6 +435,10 @@ class TestQuerying(TestCase):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__a__isnull=False),
             [self.object_data[2], self.object_data[3]]
+        )
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__j__isnull=False),
+            [self.object_data[3]]
         )
 
     @skipIf(connection.vendor == 'oracle', 'Oracle does not support querying for JSON null values.')
