@@ -77,14 +77,16 @@ models using the
 JSONField for all supported database backends
 ---------------------------------------------
 
-Django now includes a :class:`~django.db.models.JSONField` that works on all
-supported database backends. It features support for custom JSON encoder and
-decoder, along with lookups and transforms supported in previously
+Django now includes a :class:`models.JSONField <django.db.models.JSONField>`
+and a :class:`forms.JSONField <django.forms.JSONField>` that work on all
+supported database backends. Both fields support the use of custom JSON encoder
+and decoder. The model field also supports lookups and transforms supported in
+previously
 :class:`PostgreSQL-only JSONField <django.contrib.postgres.fields.JSONField>`.
 
-If your project uses the PostgreSQL JSONField, it is advised to migrate and
-use the new JSONField. For now, the old JSONField is left as a reference to
-the new one and may be removed in future releases.
+If your project uses the PostgreSQL ``JSONField`` form and/or model fields, it
+is advised to migrate and use the new fields. For now, the old fields are left
+as a reference to the new ones and may be removed in future releases.
 
 Minor features
 --------------
@@ -551,6 +553,15 @@ The ``smart_text()`` and ``force_text()`` aliases (since Django 2.0) of
 ``smart_str()`` and ``force_str()`` are deprecated. Ignore this deprecation if
 your code supports Python 2 as the behavior of ``smart_str()`` and
 ``force_str()`` is different there.
+
+PostgreSQL ``JSONField``
+------------------------
+
+:class:`django.contrib.postgres.fields.JSONField` and
+:class:`django.contrib.postgres.forms.JSONField` are
+deprecated in favor of the similar fields that work on all supported database
+backends: :class:`models.JSONField <django.db.models.JSONField>` and
+:class:`forms.JSONField <django.forms.JSONField>`.
 
 Miscellaneous
 -------------
