@@ -441,14 +441,20 @@ class TestQuerying(TestCase):
             [self.object_data[3]]
         )
 
-    @skipIf(connection.vendor == 'oracle', 'Oracle does not support querying for JSON null values.')
     def test_none_key(self):
         self.assertSequenceEqual(NullableJSONModel.objects.filter(value__j=None), [self.object_data[3]])
 
-    @skipIf(connection.vendor == 'oracle', 'Oracle does not support querying for JSON null values.')
     def test_none_key_exclude(self):
         obj = NullableJSONModel.objects.create(value={'j': 1})
-        self.assertSequenceEqual(NullableJSONModel.objects.exclude(value__j=None), [obj])
+        if connection.vendor == 'oracle':
+            # On Oracle, the query returns JSON objects and arrays that do not have a 'null' value
+            # at the specified path, including those that do not have the key.
+            self.assertSequenceEqual(
+                NullableJSONModel.objects.exclude(value__j=None),
+                self.object_data[:3] + self.object_data[4:] + [obj]
+            )
+        else:
+            self.assertSequenceEqual(NullableJSONModel.objects.exclude(value__j=None), [obj])
 
     def test_isnull_key_or_none(self):
         obj = NullableJSONModel.objects.create(value={'a': None})

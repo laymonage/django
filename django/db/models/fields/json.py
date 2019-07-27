@@ -446,6 +446,17 @@ class KeyTransformExact(PreprocessLhsMixin, JSONExact):
             rhs = rhs % tuple(func)
         return rhs, rhs_params
 
+    def as_oracle(self, compiler, connection):
+        rhs, rhs_params = super().process_rhs(compiler, connection)
+        if rhs_params[0] == 'null':
+            lhs, lhs_params = self.process_lhs(compiler, connection)
+            prev_lhs, prev_params, key_transforms = self.preprocess_lhs(compiler, connection)
+            json_path = compile_json_path(key_transforms)
+            sql = "(JSON_EXISTS(%s, '%s') AND %s IS NULL)" % (prev_lhs, json_path, lhs)
+            return sql, []
+        else:
+            return super().as_sql(compiler, connection)
+
 
 @KeyTransform.register_lookup
 class KeyTransformIExact(CaseInsensitiveMixin, KeyTransformTextLookupMixin, lookups.IExact):
