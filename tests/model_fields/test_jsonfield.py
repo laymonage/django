@@ -9,7 +9,9 @@ from django.core import serializers
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection, models, transaction
-from django.db.models import Count, Q, Value
+from django.db.models import Count, F, Q, Value
+from django.db.models.expressions import RawSQL
+from django.db.models.functions import Cast
 from django.db.models.fields.json import KeyTextTransform, KeyTransform
 from django.db.utils import DatabaseError, IntegrityError
 from django.test import SimpleTestCase, TestCase
@@ -397,6 +399,40 @@ class TestQuerying(TestCase):
             ).values('key').annotate(count=Count('key')).order_by('count'),
             [(None, 0), ('g', 1)],
             operator.itemgetter('key', 'count'),
+        )
+
+    def test_key_transform_raw_expression(self):
+        expr = RawSQL('%s::jsonb', ['{"x": "bar"}'])
+        self.assertSequenceEqual(
+            JSONModel.objects.filter(field__foo=KeyTransform('x', expr)),
+            [self.objs[-1]],
+        )
+
+    def test_key_transform_expression(self):
+        self.assertSequenceEqual(
+            JSONModel.objects.filter(field__d__0__isnull=False).annotate(
+                key=KeyTransform('d', 'field'),
+                chain=KeyTransform('0', 'key'),
+                expr=KeyTransform('0', Cast('key', models.JSONField())),
+            ).filter(chain=F('expr')),
+            [self.objs[8]],
+        )
+
+    def test_nested_key_transform_raw_expression(self):
+        expr = RawSQL('%s::jsonb', ['{"x": {"y": "bar"}}'])
+        self.assertSequenceEqual(
+            JSONModel.objects.filter(field__foo=KeyTransform('y', KeyTransform('x', expr))),
+            [self.objs[-1]],
+        )
+
+    def test_nested_key_transform_expression(self):
+        self.assertSequenceEqual(
+            JSONModel.objects.filter(field__d__0__isnull=False).annotate(
+                key=KeyTransform('d', 'field'),
+                chain=KeyTransform('f', KeyTransform('1', 'key')),
+                expr=KeyTransform('f', KeyTransform('1', Cast('key', models.JSONField()))),
+            ).filter(chain=F('expr')),
+            [self.objs[8]],
         )
 
     def test_deep_values(self):
