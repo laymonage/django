@@ -1,5 +1,9 @@
-from django.contrib.postgres.fields import JSONField as ModelJSONField
-from django.contrib.postgres.forms import JSONField as FormJSONField
+try:
+    from django.contrib.postgres.fields import JSONField as ModelJSONField
+    from django.contrib.postgres.forms import JSONField as FormJSONField
+except ImportError:
+    pass
+
 from django.utils.deprecation import RemovedInDjango40Warning
 
 from . import PostgreSQLSimpleTestCase
