@@ -1,10 +1,11 @@
 from django.contrib.postgres.fields import JSONField as ModelJSONField
 from django.contrib.postgres.forms import JSONField as FormJSONField
-from django.test import SimpleTestCase
 from django.utils.deprecation import RemovedInDjango40Warning
 
+from . import PostgreSQLSimpleTestCase
 
-class JSONFieldTests(SimpleTestCase):
+
+class JSONFieldTests(PostgreSQLSimpleTestCase):
     def test_model_field_deprecation_message(self):
         msg = (
             'django.contrib.postgres.fields.JSONField is deprecated in favor of '
