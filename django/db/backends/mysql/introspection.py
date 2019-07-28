@@ -24,6 +24,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         FIELD_TYPE.DOUBLE: 'FloatField',
         FIELD_TYPE.FLOAT: 'FloatField',
         FIELD_TYPE.INT24: 'IntegerField',
+        FIELD_TYPE.JSON: 'JSONField',
         FIELD_TYPE.LONG: 'IntegerField',
         FIELD_TYPE.LONGLONG: 'BigIntegerField',
         FIELD_TYPE.SHORT: 'SmallIntegerField',
