@@ -66,6 +66,8 @@ class JSONField(CheckFieldDefaultMixin, Field):
             return value
         elif connection.features.interprets_empty_strings_as_nulls and value == '':
             return None
+        elif connection.vendor == 'postgresql' and self.decoder is None:
+            return value
         else:
             try:
                 return json.loads(value, cls=self.decoder)
@@ -87,7 +89,7 @@ class JSONField(CheckFieldDefaultMixin, Field):
         return KeyTransformFactory(name)
 
     def select_format(self, compiler, sql, params):
-        if compiler.connection.vendor == 'postgresql':
+        if compiler.connection.vendor == 'postgresql' and self.decoder is not None:
             # Avoid psycopg2's automatic decoding to allow custom decoder
             return '%s::text' % sql, params
         return super().select_format(compiler, sql, params)
