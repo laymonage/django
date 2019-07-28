@@ -9,7 +9,7 @@ __all__ = ['JSONField']
 class JSONField(BuiltinJSONField):
     def __init__(self, *args, **kwargs):
         warnings.warn(
-            'django.contrib.postgres.forms.JSONField is deprecated in favour of '
+            'django.contrib.postgres.forms.JSONField is deprecated in favor of '
             'django.forms.JSONField',
             RemovedInDjango40Warning, stacklevel=2
         )

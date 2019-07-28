@@ -7,7 +7,7 @@ from django.utils.deprecation import RemovedInDjango40Warning
 class JSONFieldTests(SimpleTestCase):
     def test_model_field_deprecation_message(self):
         msg = (
-            'django.contrib.postgres.fields.JSONField is deprecated in favour of '
+            'django.contrib.postgres.fields.JSONField is deprecated in favor of '
             'django.db.models.JSONField'
         )
         with self.assertWarnsMessage(RemovedInDjango40Warning, msg):
@@ -15,7 +15,7 @@ class JSONFieldTests(SimpleTestCase):
 
     def test_form_field_deprecation_message(self):
         msg = (
-            'django.contrib.postgres.forms.JSONField is deprecated in favour of '
+            'django.contrib.postgres.forms.JSONField is deprecated in favor of '
             'django.forms.JSONField'
         )
         with self.assertWarnsMessage(RemovedInDjango40Warning, msg):
