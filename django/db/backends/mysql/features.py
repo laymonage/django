@@ -136,3 +136,7 @@ class DatabaseFeatures(BaseDatabaseFeatures):
         if self.connection.mysql_is_mariadb:
             return self.connection.mysql_version >= (10, 2, 7)
         return self.connection.mysql_version >= (5, 7, 8)
+
+    @cached_property
+    def can_introspect_jsonfield(self):
+        return not self.connection.mysql_is_mariadb and self.supports_json_field

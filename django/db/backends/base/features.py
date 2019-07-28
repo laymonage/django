@@ -294,6 +294,9 @@ class BaseDatabaseFeatures:
     # Does the backend support JSONField?
     supports_json_field = False
 
+    # Can the backend introspect JSONField?
+    can_introspect_jsonfield = False
+
     def __init__(self, connection):
         self.connection = connection
 
