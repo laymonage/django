@@ -452,7 +452,7 @@ class KeyTransformExact(PreprocessLhsMixin, JSONExact):
 
     def as_oracle(self, compiler, connection):
         rhs, rhs_params = super().process_rhs(compiler, connection)
-        if rhs_params[0] == 'null':
+        if rhs_params == ['null']:
             lhs, lhs_params = self.process_lhs(compiler, connection)
             prev_lhs, prev_params, key_transforms = self.preprocess_lhs(compiler, connection)
             json_path = compile_json_path(key_transforms)
