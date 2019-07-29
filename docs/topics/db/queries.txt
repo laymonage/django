@@ -911,10 +911,21 @@ To query for missing keys, use the ``isnull`` lookup::
     a function that converts JSON values into their equivalent SQL values.
     Therefore, ordering by numerical JSON values does not work as expected.
 
+.. admonition:: Oracle users
+
+    On Oracle Database, using ``None`` as the lookup value in an
+    :meth:`~django.db.models.query.QuerySet.exclude` query will return objects
+    that do not have ``null`` as the value at the given path, including objects
+    that do not have the path. On other database backends, the query will
+    return objects that have the path and the value is not ``null``.
+
 .. note::
 
     On PostgreSQL, if only one key or index is used, the SQL operator ``->`` is
     used. If multiple operators are used then the ``#>`` operator is used.
+    On MySQL, MariaDB, and SQLite, the ``JSON_EXTRACT`` function is used.
+    On Oracle Database, a combination of ``JSON_QUERY`` and ``JSON_VALUE``
+    using ``COALESCE`` is used.
 
 Containment and key operations
 ------------------------------
