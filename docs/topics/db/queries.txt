@@ -1016,7 +1016,6 @@ example::
     differentiate between a missing key and an existing key with a ``null``
     value.
 
-
 .. fieldlookup:: jsonfield.has_any_keys
 
 ``has_any_keys``

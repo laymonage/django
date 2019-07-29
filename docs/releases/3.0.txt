@@ -86,7 +86,7 @@ previously
 
 If your project uses the PostgreSQL ``JSONField`` form and/or model fields, it
 is advised to migrate and use the new fields. For now, the old fields are left
-as a reference to the new ones and may be removed in future releases.
+as a reference to the new ones and are deprecated as of this release.
 
 Minor features
 --------------
@@ -415,6 +415,12 @@ backends.
 
 * ``DatabaseOperations.return_insert_id()`` now requires an additional
   ``field`` argument with the model field.
+
+* Third party database backends must implement support for
+  :class:`~django.db.models.JSONField` or set
+  ``DatabaseFeatures.supports_json_field`` to ``False``. If ``JSONField``
+  introspection is also implemented, set
+  ``DatabaseFeatures.can_introspect_jsonfield`` to ``True``.
 
 :mod:`django.contrib.admin`
 ---------------------------
