@@ -1259,8 +1259,7 @@ class JSONField(CharField):
             return True
         # For purposes of seeing whether something has changed, True isn't the
         # same as 1 and the order of keys doesn't matter.
-        data = self.to_python(data)
         return (
             json.dumps(initial, sort_keys=True, cls=self.encoder) !=
-            json.dumps(data, sort_keys=True, cls=self.encoder)
+            json.dumps(self.to_python(data), sort_keys=True, cls=self.encoder)
         )
