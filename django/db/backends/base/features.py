@@ -292,7 +292,7 @@ class BaseDatabaseFeatures:
     supports_boolean_expr_in_select_clause = True
 
     # Does the backend support JSONField?
-    supports_json_field = False
+    supports_json_field = True
 
     # Can the backend introspect JSONField?
     can_introspect_jsonfield = False
