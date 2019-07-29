@@ -67,5 +67,4 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     has_brin_autosummarize = property(operator.attrgetter('is_postgresql_10'))
     has_phraseto_tsquery = property(operator.attrgetter('is_postgresql_9_6'))
     supports_table_partitions = property(operator.attrgetter('is_postgresql_10'))
-    supports_json_field = True
     can_introspect_jsonfield = True
