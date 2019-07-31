@@ -118,7 +118,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'BigIntegerField': 'NUMBER(19)',
         'IPAddressField': 'VARCHAR2(15)',
         'GenericIPAddressField': 'VARCHAR2(39)',
-        'JSONField': 'CLOB',
+        'JSONField': 'NCLOB',
         'NullBooleanField': 'NUMBER(1)',
         'OneToOneField': 'NUMBER(11)',
         'PositiveIntegerField': 'NUMBER(11)',
