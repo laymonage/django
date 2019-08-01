@@ -9,10 +9,8 @@ from django.db.backends.base.introspection import (
 from django.db.models.indexes import Index
 from django.utils.datastructures import OrderedSet
 
-FieldInfo = namedtuple('FieldInfo', BaseFieldInfo._fields + ('extra', 'is_unsigned', 'is_json'))
-InfoLine = namedtuple(
-    'InfoLine', 'col_name data_type max_len num_prec num_scale extra column_default is_unsigned is_json'
-)
+FieldInfo = namedtuple('FieldInfo', BaseFieldInfo._fields + ('extra', 'is_unsigned', 'has_json_constraint'))
+InfoLine = namedtuple('InfoLine', 'col_name data_type max_len num_prec num_scale extra column_default is_unsigned')
 
 
 class DatabaseIntrospection(BaseDatabaseIntrospection):
@@ -54,7 +52,9 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                 return 'PositiveIntegerField'
             elif field_type == 'SmallIntegerField':
                 return 'PositiveSmallIntegerField'
-        if description.is_json:
+        # JSON data type is an alias to LONGTEXT on MariaDB, use check
+        # constraints clauses to introspect JSONField.
+        if description.has_json_constraint:
             return 'JSONField'
         return field_type
 
@@ -69,43 +69,32 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         Return a description of the table with the DB-API cursor.description
         interface."
         """
+        json_constraints = {}
+        if self.connection.features.supports_json_field and self.connection.features.can_introspect_jsonfield:
+            cursor.execute("""
+                SELECT c.constraint_name AS column_name
+                FROM information_schema.check_constraints AS c
+                WHERE
+                    c.table_name = %s AND
+                    LOWER(c.check_clause) = 'json_valid(`' + LOWER(c.constraint_name) + '`)' AND
+                    c.constraint_schema = DATABASE()
+            """, [table_name])
+            json_constraints = {column_name[0] for column_name in cursor.fetchall()}
         # information_schema database gives more accurate results for some figures:
         # - varchar length returned by cursor.description is an internal length,
         #   not visible length (#5725)
         # - precision and scale (for decimal fields) (#5014)
         # - auto_increment is not available in cursor.description
-        info_query = """
+        cursor.execute("""
             SELECT
                 column_name, data_type, character_maximum_length,
                 numeric_precision, numeric_scale, extra, column_default,
                 CASE
-                    WHEN column_type LIKE '%%%% unsigned' THEN 1
+                    WHEN column_type LIKE '%% unsigned' THEN 1
                     ELSE 0
-                END AS is_unsigned%s
+                END AS is_unsigned
             FROM information_schema.columns
-            WHERE table_name = %%s AND table_schema = DATABASE()
-        """
-        json_query = """
-                ,
-                CASE
-                    WHEN EXISTS (
-                        SELECT 1
-                        FROM information_schema.check_constraints AS c
-                        WHERE c.table_name = %s
-                        AND c.check_clause = 'json_valid(`' + column_name + '`)'
-                        AND c.constraint_name = column_name
-                    )
-                    THEN 1
-                    ELSE 0
-                END AS is_json
-        """
-        if self.connection.features.can_introspect_check_constraints:
-            info_query %= json_query
-            params = [table_name, table_name]
-        else:
-            info_query %= ', CASE WHEN data_type = %s THEN 1 ELSE 0 END AS is_json'
-            params = [FIELD_TYPE.JSON, table_name]
-        cursor.execute(info_query, params)
+            WHERE table_name = %s AND table_schema = DATABASE()""", [table_name])
         field_info = {line[0]: InfoLine(*line) for line in cursor.fetchall()}
 
         cursor.execute("SELECT * FROM %s LIMIT 1" % self.connection.ops.quote_name(table_name))
@@ -125,7 +114,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                 info.column_default,
                 info.extra,
                 info.is_unsigned,
-                info.is_json,
+                line[0] in json_constraints,
             ))
         return fields
 
