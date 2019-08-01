@@ -9,8 +9,10 @@ from django.db.backends.base.introspection import (
 from django.db.models.indexes import Index
 from django.utils.datastructures import OrderedSet
 
-FieldInfo = namedtuple('FieldInfo', BaseFieldInfo._fields + ('extra', 'is_unsigned'))
-InfoLine = namedtuple('InfoLine', 'col_name data_type max_len num_prec num_scale extra column_default is_unsigned')
+FieldInfo = namedtuple('FieldInfo', BaseFieldInfo._fields + ('extra', 'is_unsigned', 'is_json'))
+InfoLine = namedtuple(
+    'InfoLine', 'col_name data_type max_len num_prec num_scale extra column_default is_unsigned is_json'
+)
 
 
 class DatabaseIntrospection(BaseDatabaseIntrospection):
@@ -52,6 +54,8 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                 return 'PositiveIntegerField'
             elif field_type == 'SmallIntegerField':
                 return 'PositiveSmallIntegerField'
+        if description.is_json:
+            return 'JSONField'
         return field_type
 
     def get_table_list(self, cursor):
@@ -77,9 +81,19 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                 CASE
                     WHEN column_type LIKE '%% unsigned' THEN 1
                     ELSE 0
-                END AS is_unsigned
+                END AS is_unsigned,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM information_schema.check_constraints AS c
+                        WHERE c.table_name = %s
+                        AND c.check_clause = 'json_valid(`' + column_name + '`)'
+                    )
+                    THEN 1
+                    ELSE 0
+                END AS is_json
             FROM information_schema.columns
-            WHERE table_name = %s AND table_schema = DATABASE()""", [table_name])
+            WHERE table_name = %s AND table_schema = DATABASE()""", 2 * [table_name])
         field_info = {line[0]: InfoLine(*line) for line in cursor.fetchall()}
 
         cursor.execute("SELECT * FROM %s LIMIT 1" % self.connection.ops.quote_name(table_name))
@@ -99,6 +113,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                 info.column_default,
                 info.extra,
                 info.is_unsigned,
+                info.is_json,
             ))
         return fields
 
