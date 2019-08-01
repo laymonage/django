@@ -102,7 +102,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
             info_query %= json_query
             params = [table_name, table_name]
         else:
-            info_query %= ', data_type = %s AS is_json'
+            info_query %= ', CASE WHEN data_type = %s THEN 1 ELSE 0 END AS is_json'
             params = [FIELD_TYPE.JSON, table_name]
         cursor.execute(info_query, params)
         field_info = {line[0]: InfoLine(*line) for line in cursor.fetchall()}
