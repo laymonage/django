@@ -70,7 +70,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         interface."
         """
         json_constraints = {}
-        if self.connection.features.supports_json_field and self.connection.features.can_introspect_jsonfield:
+        if self.connection.features.can_introspect_jsonfield:
             cursor.execute("""
                 SELECT c.constraint_name AS column_name
                 FROM information_schema.check_constraints AS c
