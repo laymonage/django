@@ -8,7 +8,7 @@ from django.db.backends.base.introspection import (
 )
 from django.db.models.indexes import Index
 
-FieldInfo = namedtuple('FieldInfo', BaseFieldInfo._fields + ('pk', 'is_json'))
+FieldInfo = namedtuple('FieldInfo', BaseFieldInfo._fields + ('pk', 'has_json_constraint'))
 
 field_size_re = re.compile(r'^\s*(?:var)?char\s*\(\s*(\d+)\s*\)\s*$')
 
@@ -61,6 +61,8 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
             # No support for BigAutoField or SmallAutoField as SQLite treats
             # all integer primary keys as signed 64-bit integers.
             return 'AutoField'
+        if description.has_json_constraint:
+            return 'JSONField'
         return field_type
 
     def get_table_list(self, cursor):
@@ -79,12 +81,23 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         interface.
         """
         cursor.execute('PRAGMA table_info(%s)' % self.connection.ops.quote_name(table_name))
+        table_info = cursor.fetchall()
+        json_constraints = {}
+        if self.connection.features.can_introspect_jsonfield:
+            for line in table_info:
+                column = line[1]
+                has_json_constraint = cursor.execute(
+                    "SELECT sql FROM sqlite_master WHERE type='table' AND name=%s "
+                    "AND sql LIKE '%%json_valid(%s)%%'" %
+                    (self.connection.ops.quote_name(table_name), self.connection.ops.quote_name(column))
+                ).fetchone()
+                json_constraints[column] = True if has_json_constraint else False
         return [
             FieldInfo(
                 name, data_type, None, get_field_size(data_type), None, None,
-                not notnull, default, pk == 1,
+                not notnull, default, pk == 1, json_constraints[column]
             )
-            for cid, name, data_type, notnull, default, pk in cursor.fetchall()
+            for cid, name, data_type, notnull, default, pk in table_info
         ]
 
     def get_sequences(self, cursor, table_name, table_fields=()):

@@ -54,3 +54,7 @@ class DatabaseFeatures(BaseDatabaseFeatures):
         except OperationalError:
             return False
         return True
+
+    @cached_property
+    def can_introspect_jsonfield(self):
+        return self.supports_json_field
