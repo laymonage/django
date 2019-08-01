@@ -74,14 +74,19 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         #   not visible length (#5725)
         # - precision and scale (for decimal fields) (#5014)
         # - auto_increment is not available in cursor.description
-        cursor.execute("""
+        info_query = """
             SELECT
                 column_name, data_type, character_maximum_length,
                 numeric_precision, numeric_scale, extra, column_default,
                 CASE
-                    WHEN column_type LIKE '%% unsigned' THEN 1
+                    WHEN column_type LIKE '%%%% unsigned' THEN 1
                     ELSE 0
-                END AS is_unsigned,
+                END AS is_unsigned%s
+            FROM information_schema.columns
+            WHERE table_name = %%s AND table_schema = DATABASE()
+        """
+        json_query = """
+                ,
                 CASE
                     WHEN EXISTS (
                         SELECT 1
@@ -92,8 +97,14 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                     THEN 1
                     ELSE 0
                 END AS is_json
-            FROM information_schema.columns
-            WHERE table_name = %s AND table_schema = DATABASE()""", 2 * [table_name])
+        """
+        if self.connection.features.can_introspect_check_constraints:
+            info_query %= json_query
+            params = [table_name, table_name]
+        else:
+            info_query %= ', data_type = %s AS is_json'
+            params = [FIELD_TYPE.JSON, table_name]
+        cursor.execute(info_query, params)
         field_info = {line[0]: InfoLine(*line) for line in cursor.fetchall()}
 
         cursor.execute("SELECT * FROM %s LIMIT 1" % self.connection.ops.quote_name(table_name))

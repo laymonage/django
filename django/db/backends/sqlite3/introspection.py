@@ -8,7 +8,7 @@ from django.db.backends.base.introspection import (
 )
 from django.db.models.indexes import Index
 
-FieldInfo = namedtuple('FieldInfo', BaseFieldInfo._fields + ('pk',))
+FieldInfo = namedtuple('FieldInfo', BaseFieldInfo._fields + ('pk', 'is_json'))
 
 field_size_re = re.compile(r'^\s*(?:var)?char\s*\(\s*(\d+)\s*\)\s*$')
 
