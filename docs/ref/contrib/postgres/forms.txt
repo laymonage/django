@@ -179,8 +179,8 @@ Fields
     A new :class:`~django.forms.JSONField` that works on all supported
     database backends is available starting with Django 3.0. It is advised to
     migrate and use the new JSONField. For now, this PostgreSQL-only
-    ``JSONField`` is left as a reference to the new one and may be removed in
-    future releases.
+    ``JSONField`` is left as a reference to the new one and is deprecated as of
+    this release.
 
 Range Fields
 ------------
