@@ -95,7 +95,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         return [
             FieldInfo(
                 name, data_type, None, get_field_size(data_type), None, None,
-                not notnull, default, pk == 1, json_constraints[column]
+                not notnull, default, pk == 1, json_constraints[name]
             )
             for cid, name, data_type, notnull, default, pk in table_info
         ]
