@@ -96,7 +96,7 @@ class TestValidation(TestCase):
         obj = JSONModel(value=self.uuid_value)
         obj.clean_fields()
         obj.save()
-        obj = JSONModel.objects.get(id=obj.id)
+        obj.refresh_from_db()
         self.assertEqual(obj.value, self.uuid_value)
 
     def test_db_check_constraints(self):
@@ -155,21 +155,21 @@ class TestSaveLoad(TestCase):
         # so it doesn't violate IS NOT NULL constraint.
         if connection.vendor == 'oracle':
             obj.save()
-            obj = JSONModel.objects.get(id=obj.id)
+            obj.refresh_from_db()
             self.assertIsNone(obj.value)
         else:
             with transaction.atomic(), self.assertRaises(IntegrityError):
                 obj.save()
         obj = NullableJSONModel.objects.create(value=None)
-        obj = NullableJSONModel.objects.get(id=obj.id)
+        obj.refresh_from_db()
         self.assertIsNone(obj.value)
 
     @skipIf(connection.vendor == 'oracle', 'Oracle does not support scalar values.')
     def test_json_null_different_from_sql_null(self):
         json_null = NullableJSONModel.objects.create(value=Value('null'))
-        json_null = NullableJSONModel.objects.get(id=json_null.id)
+        json_null.refresh_from_db()
         sql_null = NullableJSONModel.objects.create(value=None)
-        sql_null = NullableJSONModel.objects.get(id=sql_null.id)
+        sql_null.refresh_from_db()
 
         # They are different in the database ('null' vs NULL)
         self.assertSequenceEqual(
@@ -196,7 +196,7 @@ class TestSaveLoad(TestCase):
             with self.subTest(value=value):
                 obj = JSONModel(value=value)
                 obj.save()
-                obj = JSONModel.objects.get(id=obj.id)
+                obj.refresh_from_db()
                 if value == Value('null'):
                     value = None
                 self.assertEqual(obj.value, value)
@@ -210,7 +210,7 @@ class TestSaveLoad(TestCase):
         for value in values:
             with self.subTest(value=value):
                 obj = JSONModel.objects.create(value=value)
-                obj = JSONModel.objects.get(id=obj.id)
+                obj.refresh_from_db()
                 self.assertEqual(obj.value, value)
 
     def test_list_value(self):
@@ -222,7 +222,7 @@ class TestSaveLoad(TestCase):
         for value in values:
             with self.subTest(value=value):
                 obj = JSONModel.objects.create(value=value)
-                obj = JSONModel.objects.get(id=obj.id)
+                obj.refresh_from_db()
                 self.assertEqual(obj.value, value)
 
     def test_realistic_object_value(self):
@@ -238,7 +238,7 @@ class TestSaveLoad(TestCase):
             ],
         }
         obj = JSONModel.objects.create(value=value)
-        obj = JSONModel.objects.get(id=obj.id)
+        obj.refresh_from_db()
         self.assertEqual(obj.value, value)
 
 
