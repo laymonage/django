@@ -1,7 +1,5 @@
-from io import StringIO
 from unittest import mock, skipUnless
 
-from django.core.management import call_command
 from django.db import connection
 from django.db.models import Index
 from django.db.utils import DatabaseError
@@ -288,23 +286,3 @@ class IntrospectionTests(TransactionTestCase):
                 field_constraints.add(name)
         # All constraints are accounted for.
         self.assertEqual(constraints.keys() ^ (custom_constraints | field_constraints), set())
-
-
-class InspectDBTests(IntrospectionTests):
-    def assertFieldsInModel(self, model, field_outputs):
-        out = StringIO()
-        call_command(
-            'inspectdb',
-            table_name_filter=lambda tn: tn.startswith(model),
-            stdout=out,
-        )
-        output = out.getvalue()
-        for field_output in field_outputs:
-            self.assertIn(field_output, output)
-
-    @skipUnlessDBFeature('can_introspect_jsonfield')
-    def test_json_field(self):
-        self.assertFieldsInModel(
-            'introspection_jsonmodel',
-            ['field = models.JSONField(blank=True, null=True)'],
-        )
