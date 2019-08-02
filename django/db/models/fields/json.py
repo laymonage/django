@@ -18,7 +18,7 @@ from .mixins import CheckFieldDefaultMixin
 class JSONField(CheckFieldDefaultMixin, Field):
     description = _('A JSON object')
     default_error_messages = {
-        'invalid': _("Value must be valid JSON."),
+        'invalid': _('Value must be valid JSON.'),
     }
     _default_hint = ('dict', '{}')
 
@@ -345,7 +345,7 @@ class KeyTransform(PreprocessLhsMixin, Transform):
     def as_postgresql(self, compiler, connection):
         lhs, params, key_transforms = self.preprocess_lhs(compiler, connection)
         if len(key_transforms) > 1:
-            return "(%s %s %%s)" % (lhs, self.postgres_nested_operator), [key_transforms] + params
+            return '(%s %s %%s)' % (lhs, self.postgres_nested_operator), [key_transforms] + params
         try:
             lookup = int(self.key_name)
         except ValueError:
