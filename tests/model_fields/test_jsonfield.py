@@ -363,10 +363,6 @@ class TestQuerying(TestCase):
             [self.scalar_data[0]]
         )
 
-    @skipIf(
-        connection.vendor == 'mysql' and connection.mysql_is_mariadb or connection.vendor == 'oracle',
-        'MariaDB and Oracle do not support ordering by JSON values.'
-    )
     def test_ordering_by_transform(self):
         objs = [
             NullableJSONModel.objects.create(value={'ord': 93, 'name': 'bar'}),
@@ -376,7 +372,11 @@ class TestQuerying(TestCase):
             NullableJSONModel.objects.create(value={'ord': -100291029, 'name': 'eggs'}),
         ]
         query = NullableJSONModel.objects.filter(value__name__isnull=False).order_by('value__ord')
-        self.assertSequenceEqual(query, [objs[4], objs[2], objs[3], objs[1], objs[0]])
+        if connection.vendor == 'mysql' and connection.mysql_is_mariadb or connection.vendor == 'oracle':
+            # MariaDB and Oracle use string representation of the JSON values to sort the objects.
+            self.assertSequenceEqual(query, [objs[2], objs[4], objs[3], objs[1], objs[0]])
+        else:
+            self.assertSequenceEqual(query, [objs[4], objs[2], objs[3], objs[1], objs[0]])
 
     def test_ordering_grouping_by_key_transform(self):
         base_qs = NullableJSONModel.objects.filter(value__d__0__isnull=False)
