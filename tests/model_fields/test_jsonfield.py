@@ -575,11 +575,12 @@ class TestQuerying(TestCase):
 
     def test_key_sql_injection(self):
         with CaptureQueriesContext(connection) as queries:
-            self.assertIs(
-                NullableJSONModel.objects.filter(**{
-                    """value__test' = '"a"') OR 1 = 1 OR ('d""": 'x',
-                }).exists(), False
-            )
+            query = NullableJSONModel.objects.filter(**{"""value__test' = '"a"') OR 1 = 1 OR ('d""": 'x', })
+            if connection.vendor == 'oracle':
+                with self.assertRaises(DatabaseError):
+                    query.exists()
+            else:
+                self.assertIs(query.exists(), False)
         if connection.vendor == 'postgresql':
             self.assertIn(
                 """."value" -> 'test'' = ''"a"'') OR 1 = 1 OR (''d') = '"x"' """,
