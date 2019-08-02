@@ -14,7 +14,7 @@ from django.db.models.expressions import RawSQL
 from django.db.models.functions import Cast
 from django.db.models.fields.json import KeyTextTransform, KeyTransform
 from django.db.utils import DatabaseError, IntegrityError
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
 from django.test.utils import CaptureQueriesContext
 
 from .models import JSONModel, NullableJSONModel, OrderedJSONModel
@@ -454,10 +454,7 @@ class TestQuerying(TestCase):
                 ]
             )
 
-    @skipIf(
-        connection.vendor in ['mysql', 'oracle', 'sqlite'],
-        'MySQL, Oracle, and SQLite do not support DISTINCT ON fields.'
-    )
+    @skipUnlessDBFeature('can_distinct_on_fields')
     def test_deep_distinct(self):
         query = NullableJSONModel.objects.distinct('value__k__l').values_list('value__k__l')
         self.assertSequenceEqual(query, [('m',), (None,)])
