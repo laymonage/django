@@ -552,36 +552,36 @@ class TestQuerying(TestCase):
         )
 
     def test_iexact(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__iexact='BaR').exists())
-        self.assertFalse(NullableJSONModel.objects.filter(value__foo__iexact='"BaR"').exists())
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__iexact='BaR').exists(), True)
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__iexact='"BaR"').exists(), False)
 
     def test_icontains(self):
-        self.assertFalse(NullableJSONModel.objects.filter(value__foo__icontains='"bar"').exists())
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__icontains='"bar"').exists(), False)
 
     def test_startswith(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__startswith='b').exists())
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__startswith='b').exists(), True)
 
     def test_istartswith(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__istartswith='B').exists())
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__istartswith='B').exists(), True)
 
     def test_endswith(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__endswith='r').exists())
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__endswith='r').exists(), True)
 
     def test_iendswith(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__iendswith='R').exists())
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__iendswith='R').exists(), True)
 
     def test_regex(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__regex=r'^bar$').exists())
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__regex=r'^bar$').exists(), True)
 
     def test_iregex(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__iregex=r'^bAr$').exists())
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__iregex=r'^bAr$').exists(), True)
 
     def test_key_sql_injection(self):
         with CaptureQueriesContext(connection) as queries:
-            self.assertFalse(
+            self.assertIs(
                 NullableJSONModel.objects.filter(**{
                     """value__test' = '"a"') OR 1 = 1 OR ('d""": 'x',
-                }).exists()
+                }).exists(), False
             )
         if connection.vendor == 'postgresql':
             self.assertIn(
