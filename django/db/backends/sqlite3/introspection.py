@@ -82,7 +82,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         """
         cursor.execute('PRAGMA table_info(%s)' % self.connection.ops.quote_name(table_name))
         table_info = cursor.fetchall()
-        json_constraints = {}
+        json_columns = set()
         if self.connection.features.can_introspect_jsonfield:
             for line in table_info:
                 column = line[1]
@@ -91,11 +91,12 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                     "AND sql LIKE '%%json_valid(%s)%%'" %
                     (self.connection.ops.quote_name(table_name), self.connection.ops.quote_name(column))
                 ).fetchone()
-                json_constraints[column] = True if has_json_constraint else False
+                if has_json_constraint:
+                    json_columns.add(column)
         return [
             FieldInfo(
                 name, data_type, None, get_field_size(data_type), None, None,
-                not notnull, default, pk == 1, json_constraints[name]
+                not notnull, default, pk == 1, name in json_columns
             )
             for cid, name, data_type, notnull, default, pk in table_info
         ]
