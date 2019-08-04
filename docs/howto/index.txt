@@ -25,6 +25,7 @@ you quickly accomplish common tasks.
    outputting-csv
    outputting-pdf
    overriding-templates
+   sqlite-json1
    static-files/index
    static-files/deployment
    windows

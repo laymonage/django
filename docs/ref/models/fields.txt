@@ -1110,10 +1110,8 @@ To query ``JSONField`` in the database, see
 .. admonition:: SQLite users
 
     Requires SQLite 3.9.0 or later with the
-    `JSON1 <https://www.sqlite.org/json1.html>`_ extension enabled. Most
-    Linux distributions already have the extension enabled in their SQLite
-    packages by default. If you're on Windows or other systems, make sure the
-    extension is properly installed and enabled.
+    `JSON1 <https://www.sqlite.org/json1.html>`_ extension enabled. See
+    :doc:`/howto/sqlite-json1` for more details.
 
 ``NullBooleanField``
 --------------------
