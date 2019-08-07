@@ -208,15 +208,19 @@ class DataContains(SimpleFunctionOperatorMixin, Lookup):
             conditions = []
             for key, value in rhs.items():
                 k = json.dumps(key)
-                if isinstance(value, (list, dict)):
-                    func = 'JSON_QUERY'
-                else:
-                    func = 'JSON_VALUE'
-                conditions.append(
-                    "%s(%s, '$.%s') = %s('{\"val\": %s}', '$.val')" % (
-                        func, lhs, k, func, json.dumps(value)
+                if value is None:
+                    conditions.append(
+                        "(JSON_EXISTS(%s, '$.%s') AND"
+                        " COALESCE(JSON_QUERY(%s, '$.%s'), JSON_VALUE(%s, '$.%s')) IS NULL)" % ((lhs, k) * 3)
                     )
-                )
+                elif isinstance(value, (list, dict)):
+                    conditions.append(
+                        "JSON_QUERY(%s, '$.%s') = JSON_QUERY('{\"val\": %s}', '$.val')" % (lhs, k, json.dumps(value))
+                    )
+                else:
+                    conditions.append(
+                        "JSON_VALUE(%s, '$.%s') = JSON_VALUE('{\"val\": %s}', '$.val')" % (lhs, k, json.dumps(value))
+                    )
             return ' AND '.join(conditions), []
         else:
             return 'DBMS_LOB.SUBSTR(%s) = %%s' % lhs, [self.rhs]

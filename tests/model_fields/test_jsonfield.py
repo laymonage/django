@@ -334,6 +334,13 @@ class TestQuerying(TestCase):
             [self.object_data[4]]
         )
 
+    def test_contains_null(self):
+        query = NullableJSONModel.objects.filter(value__contains={'i': False, 'j': None})
+        self.assertSequenceEqual(
+            query,
+            [self.object_data[3]]
+        )
+
     @skipIf(
         connection.vendor in ['oracle', 'sqlite'],
         "Oracle and SQLite do not support 'contained_by' lookup."
