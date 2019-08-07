@@ -225,30 +225,10 @@ class DataContains(SimpleFunctionOperatorMixin, Lookup):
         else:
             return 'DBMS_LOB.SUBSTR(%s) = %%s' % lhs, [self.rhs]
 
-    def as_sqlite(self, compiler, connection):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs = json.loads(self.rhs)
-        if isinstance(rhs, dict):
-            if not rhs:
-                return "JSON_TYPE(%s, '$') = %%s" % lhs, ['object']
-            conditions = []
-            params = []
-            for key, value in rhs.items():
-                if value is None:
-                    template = 'JSON_TYPE(%s, %%s) = %%s'
-                    val = 'null'
-                elif isinstance(value, (list, dict)):
-                    template = 'JSON_EXTRACT(%s, %%s) = JSON(%%s)'
-                    val = json.dumps(value)
-                else:
-                    template = 'JSON_EXTRACT(%s, %%s) = %%s'
-                    val = value
-                conditions.append(template % lhs)
-                params.append('$.' + json.dumps(key))
-                params.append(val)
-            return ' AND '.join(conditions), params
-        else:
-            return '%s = %%s' % lhs, [self.rhs]
+    def as_sqlite(self, compiler, connection, flipped=False):
+        return super().as_sql_function(
+            compiler, connection, template='django_json_contains(%s, %s)', flipped=flipped
+        )
 
 
 @JSONField.register_lookup
@@ -260,7 +240,7 @@ class ContainedBy(DataContains):
         return super().as_mysql(compiler, connection, flipped=True)
 
     def as_sqlite(self, compiler, connection):
-        return super().as_sql_function(compiler, connection, template='django_json_contained_by(%s, %s)')
+        return super().as_sqlite(compiler, connection, flipped=True)
 
 
 class JSONValue(Func):
