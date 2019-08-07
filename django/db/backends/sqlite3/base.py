@@ -5,6 +5,7 @@ import datetime
 import decimal
 import functools
 import hashlib
+import json
 import math
 import operator
 import re
@@ -210,6 +211,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         conn.create_function("django_time_diff", 2, _sqlite_time_diff)
         conn.create_function("django_timestamp_diff", 2, _sqlite_timestamp_diff)
         conn.create_function("django_format_dtdelta", 3, _sqlite_format_dtdelta)
+        conn.create_function("django_json_contained_by", 2, _sqlite_json_contained_by)
         conn.create_function('regexp', 2, _sqlite_regexp)
         conn.create_function('ACOS', 1, none_guard(math.acos))
         conn.create_function('ASIN', 1, none_guard(math.asin))
@@ -583,3 +585,13 @@ def _sqlite_lpad(text, length, fill_text):
 @none_guard
 def _sqlite_rpad(text, length, fill_text):
     return (text + fill_text * length)[:length]
+
+
+@none_guard
+def _sqlite_json_contained_by(needle, haystack):
+    candidate = json.loads(needle)
+    target = json.loads(haystack)
+    if isinstance(candidate, dict) and isinstance(target, dict):
+        return candidate.items() <= target.items()
+    else:
+        return candidate == target

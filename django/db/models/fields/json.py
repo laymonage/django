@@ -259,6 +259,9 @@ class ContainedBy(DataContains):
     def as_mysql(self, compiler, connection):
         return super().as_mysql(compiler, connection, flipped=True)
 
+    def as_sqlite(self, compiler, connection):
+        return super().as_sql_function(compiler, connection, template='django_json_contained_by(%s, %s)')
+
 
 class JSONValue(Func):
     function = 'CAST'

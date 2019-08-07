@@ -341,10 +341,7 @@ class TestQuerying(TestCase):
             [self.object_data[3]]
         )
 
-    @skipIf(
-        connection.vendor in ['oracle', 'sqlite'],
-        "Oracle and SQLite do not support 'contained_by' lookup."
-    )
+    @skipIf(connection.vendor == 'oracle', "Oracle does not support 'contained_by' lookup.")
     def test_contained_by(self):
         query = NullableJSONModel.objects.filter(value__contained_by={'a': 'b', 'c': 1, 'h': True})
         self.assertSequenceEqual(
