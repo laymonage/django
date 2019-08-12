@@ -35,20 +35,19 @@ class JSONField(CheckFieldDefaultMixin, Field):
     @classmethod
     def _check_json_support(cls):
         errors = []
+        any_jsonfield_support = False
         for db in settings.DATABASES:
             connection = connections[db]
-            if not connection.features.supports_json_field:
-                errors.append(
-                    checks.Error(
-                        "Connection '%s' uses a version of %s that does not support JSONField." % (
-                            db, connection.display_name
-                        ),
-                        hint=(
-                            'See the documentation of JSONField for supported database versions.'
-                        ),
-                        obj=cls
-                    )
+            if connection.features.supports_json_field:
+                any_jsonfield_support = True
+        if not any_jsonfield_support:
+            errors.append(
+                checks.Error(
+                    'No database connection that supports JSONField is found.',
+                    hint='See the documentation of JSONField for supported database versions.',
+                    obj=cls
                 )
+            )
         return errors
 
     def deconstruct(self):
