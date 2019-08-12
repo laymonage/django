@@ -740,8 +740,8 @@ iterator. Your code must handle this.
 
 .. _`Isolation in SQLite`: https://sqlite.org/isolation.html
 
-How to enable JSON1 extension on SQLite
----------------------------------------
+Enabling JSON1 extension on SQLite
+----------------------------------
 
 This document describes how to enable JSON1 extension on Python's
 :py:mod:`sqlite3` library so that :class:`~django.db.models.JSONField`
@@ -765,7 +765,7 @@ On most major Linux distributions, the JSON1 extension is included in their
 SQLite and/or Python packages and enabled by default. If that's not the case on
 your installation, then do the following:
 
-- Download the `SQLite amalgamation <https://www.sqlite.org/download.html>`_,
+- Download the `SQLite amalgamation`_,
   with or without the configuration script.
 - Extract the source code archive and enter the directory of the result.
 - Compile the source code using the ``-DSQLITE_ENABLE_JSON1`` flag to enable
@@ -775,8 +775,7 @@ your installation, then do the following:
 
       gcc -DSQLITE_ENABLE_JSON1 -c -fPIC sqlite3.c
 
-  To enable other extensions, see the
-  `compilation instructions <https://www.sqlite.org/howtocompile.html>`_.
+  To enable other extensions, see the `compilation instructions`_.
 - Create a shared library. For example:
 
   .. code-block:: console
@@ -794,6 +793,9 @@ your installation, then do the following:
 - Now, the JSON1 extension should be ready to be used in Python and Django.
   Note that environment variables aren't preserved between login sessions, so
   make sure it's set before you run Django.
+
+.. _`SQLite amalgamation`: https://www.sqlite.org/download.html
+.. _`compilation instructions`: https://www.sqlite.org/howtocompile.html
 
 Mac
 ~~~
@@ -814,8 +816,8 @@ Becomes:
 Windows
 ~~~~~~~
 
-- Download the `precompiled DLL <https://www.sqlite.org/download.html>`_ that
-  matches your Python installation (32-bit or 64-bit).
+- Download the `precompiled DLL`_ that matches your Python installation (32-bit
+  or 64-bit).
 - Locate your Python installation. By default, it should be in
   ``%localappdata%\Programs\Python\PythonXX``, where ``XX`` is the Python
   version. For example, it's located in
@@ -827,6 +829,8 @@ Windows
 - Extract ``sqlite3.dll`` from the downloaded DLL archive and put it in the
   ``DLLs`` directory.
 - Now, the JSON1 extension should be ready to be used in Python and Django.
+
+.. _`precompiled DLL`: https://www.sqlite.org/download.html
 
 .. _oracle-notes:
 
