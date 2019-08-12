@@ -819,9 +819,9 @@ Windows
 - Locate your Python installation. By default, it should be in
   ``%localappdata%\Programs\Python\PythonXX``, where ``XX`` is the Python
   version. For example, it's located in
-  ``C:\Users\<username>\Programs\Python\Python37``. If you added Python
-  installation directory to your ``PATH`` environment variable, you can run
-  the command ``where python`` on a command prompt to locate it.
+  ``C:\Users\<username>\AppData\Local\Programs\Python\Python37``. If you added
+  Python installation directory to your ``PATH`` environment variable, you can
+  run the command ``where python`` on a command prompt to locate it.
 - Enter the ``DLLs`` directory in your Python installation.
 - Extract ``sqlite3.dll`` from the downloaded DLL archive and put it in the
   ``DLLs`` directory.
