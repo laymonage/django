@@ -589,8 +589,7 @@ def _sqlite_rpad(text, length, fill_text):
 
 @none_guard
 def _sqlite_json_contains(haystack, needle):
-    target = json.loads(haystack)
-    candidate = json.loads(needle)
+    target, candidate = json.loads(haystack), json.loads(needle)
     if isinstance(target, dict) and isinstance(candidate, dict):
         return target.items() >= candidate.items()
     else:
