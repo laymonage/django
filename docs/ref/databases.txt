@@ -823,6 +823,7 @@ Windows
   Python installation directory to your ``PATH`` environment variable, you can
   run the command ``where python`` on a command prompt to locate it.
 - Enter the ``DLLs`` directory in your Python installation.
+- Rename (or delete) ``sqlite3.dll`` inside the ``DLLs`` directory.
 - Extract ``sqlite3.dll`` from the downloaded DLL archive and put it in the
   ``DLLs`` directory.
 - Now, the JSON1 extension should be ready to be used in Python and Django.
