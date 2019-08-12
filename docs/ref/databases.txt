@@ -800,14 +800,15 @@ your installation, then do the following:
 Mac
 ~~~
 
-On Mac, follow the instructions for Linux above, but set ``DYLD_LIBRARY_PATH``
-instead of the ``LD_PRELOAD`` environment variable. For example:
+On Mac, follow the instructions for Linux above, but instead of setting the
+``LD_PRELOAD`` environment variable, use ``DYLD_LIBRARY_PATH``. For example,
+instead of:
 
   .. code-block:: console
 
       export LD_PRELOAD=/usr/lib/sqlite3/libsqlite3.so
 
-Becomes:
+use:
 
   .. code-block:: console
 
