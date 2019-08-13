@@ -740,6 +740,8 @@ iterator. Your code must handle this.
 
 .. _`Isolation in SQLite`: https://sqlite.org/isolation.html
 
+.. _sqlite-json1:
+
 Enabling JSON1 extension on SQLite
 ----------------------------------
 
