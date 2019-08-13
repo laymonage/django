@@ -239,6 +239,9 @@ class ContainedBy(DataContains):
     def as_mysql(self, compiler, connection):
         return super().as_mysql(compiler, connection, flipped=True)
 
+    def as_oracle(self, compiler, connection):
+        return super().as_sql(compiler, connection)
+
     def as_sqlite(self, compiler, connection):
         return super().as_sqlite(compiler, connection, flipped=True)
 
