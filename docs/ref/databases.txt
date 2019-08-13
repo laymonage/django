@@ -744,10 +744,12 @@ Enabling JSON1 extension on SQLite
 ----------------------------------
 
 This document describes how to enable JSON1 extension on Python's
-:py:mod:`sqlite3` library so that :class:`~django.db.models.JSONField`
-can be used. To check if the extension is enabled on your installation, you can
-do a query with one of the functions included in the extension, e.g.
-``JSON()``. For example::
+:py:mod:`sqlite3` library so that :class:`~django.db.models.JSONField` can be
+used. If the extension is not enabled on your installation and there is no
+other database connection that supports ``JSONField``, a system error will be
+raised ("``No database connection that supports JSONField is found.``"). To
+check if the extension is enabled on your installation, you can do a query with
+one of the functions included in the extension, e.g. ``JSON()``. For example::
 
     >>> import sqlite3
     >>> conn = sqlite3.connect(':memory:')
