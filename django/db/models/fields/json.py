@@ -294,7 +294,7 @@ def compile_json_path(key_transforms):
             path.append('.')
             path.append(json.dumps(key_transform))
         else:
-            path.append('[{}]'.format(num))
+            path.append('[%s]' % num)
     return ''.join(path)
 
 
