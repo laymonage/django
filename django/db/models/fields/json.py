@@ -4,7 +4,7 @@ from django import forms
 from django.conf import settings
 from django.core import checks, exceptions
 from django.db import connections
-from django.db.models import Func, Value, lookups
+from django.db.models import lookups
 from django.db.models.lookups import (
     FieldGetDbPrepValueMixin, Lookup, Transform,
 )
@@ -244,14 +244,6 @@ class ContainedBy(DataContains):
 
     def as_sqlite(self, compiler, connection):
         return super().as_sqlite(compiler, connection, flipped=True)
-
-
-class JSONValue(Func):
-    function = 'CAST'
-    template = '%(function)s(%(expressions)s AS JSON)'
-
-    def __init__(self, expression):
-        super().__init__(Value(expression))
 
 
 @JSONField.register_lookup
