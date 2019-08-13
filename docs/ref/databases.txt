@@ -786,15 +786,14 @@ your installation, then do the following:
 
 - Place the resulting file (``libsqlite3.so``) in a desired directory, e.g.
   ``/usr/lib/sqlite3/``.
-- Set the ``LD_PRELOAD`` environment variable. For example:
+- Set the ``LD_PRELOAD`` environment variable to use your compiled SQLite every
+  time you run Django. For example:
 
   .. code-block:: console
 
       export LD_PRELOAD=/usr/lib/sqlite3/libsqlite3.so
 
 - Now, the JSON1 extension should be ready to be used in Python and Django.
-  Note that environment variables aren't preserved between login sessions, so
-  make sure it's set before you run Django.
 
 .. _`SQLite amalgamation`: https://www.sqlite.org/download.html
 .. _`compilation instructions`: https://www.sqlite.org/howtocompile.html
