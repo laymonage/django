@@ -403,7 +403,7 @@ class KeyTransformIsNull(PreprocessLhsMixin, lookups.IsNull):
         json_path = compile_json_path(key_transforms)
         if self.rhs:
             return (
-                "(NOT JSON_EXISTS(%s, '%s') OR DBMS_LOB.SUBSTR(%s) IS NULL)" % (prev_lhs, json_path, prev_lhs),
+                "(NOT JSON_EXISTS(%s, '%s') OR JSON_QUERY(%s, '$') IS NULL)" % (prev_lhs, json_path, prev_lhs),
                 prev_params
             )
         else:
