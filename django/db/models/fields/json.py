@@ -368,6 +368,20 @@ class KeyTransformTextLookupMixin:
         return lhs, lhs_params
 
 
+class KeyTransformNumericLookupMixin:
+    def process_lhs(self, compiler, connection):
+        lhs, lhs_params = super().process_lhs(compiler, connection)
+        if connection.vendor == 'oracle':
+            lhs = 'TO_NUMBER(%s)' % lhs
+        return lhs, lhs_params
+
+    def process_rhs(self, compiler, connection):
+        rhs, rhs_params = super().process_rhs(compiler, connection)
+        if connection.vendor != 'postgresql':
+            rhs_params = [json.loads(value) for value in rhs_params]
+        return rhs, rhs_params
+
+
 class CaseInsensitiveMixin:
     def process_lhs(self, compiler, connection):
         lhs, lhs_params = super().process_lhs(compiler, connection)
@@ -490,22 +504,22 @@ class KeyTransformIRegex(CaseInsensitiveMixin, KeyTransformTextLookupMixin, look
 
 
 @KeyTransform.register_lookup
-class KeyTransformLte(KeyTransformTextLookupMixin, lookups.LessThanOrEqual):
+class KeyTransformLte(KeyTransformNumericLookupMixin, lookups.LessThanOrEqual):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformLt(KeyTransformTextLookupMixin, lookups.LessThan):
+class KeyTransformLt(KeyTransformNumericLookupMixin, lookups.LessThan):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformGte(KeyTransformTextLookupMixin, lookups.GreaterThanOrEqual):
+class KeyTransformGte(KeyTransformNumericLookupMixin, lookups.GreaterThanOrEqual):
     pass
 
 
 @KeyTransform.register_lookup
-class KeyTransformGt(KeyTransformTextLookupMixin, lookups.GreaterThan):
+class KeyTransformGt(KeyTransformNumericLookupMixin, lookups.GreaterThan):
     pass
 
 

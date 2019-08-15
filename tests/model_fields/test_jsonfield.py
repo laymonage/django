@@ -250,10 +250,10 @@ class TestQuerying(TestCase):
             scalar_values += [True, False, 'yes', 7, 9.6]
         object_values = [
             [], {},
-            {'a': 'b', 'c': 1},
+            {'a': 'b', 'c': 14},
             {
                 'a': 'b',
-                'c': 1,
+                'c': 14,
                 'd': ['e', {'f': 'g'}],
                 'h': True,
                 'i': False,
@@ -343,7 +343,7 @@ class TestQuerying(TestCase):
 
     @skipIf(connection.vendor == 'oracle', "Oracle does not support 'contained_by' lookup.")
     def test_contained_by(self):
-        query = NullableJSONModel.objects.filter(value__contained_by={'a': 'b', 'c': 1, 'h': True})
+        query = NullableJSONModel.objects.filter(value__contained_by={'a': 'b', 'c': 14, 'h': True})
         self.assertSequenceEqual(
             query,
             [self.object_data[1], self.object_data[2]]
@@ -357,7 +357,7 @@ class TestQuerying(TestCase):
 
     def test_exact_complex(self):
         self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(value__exact={'a': 'b', 'c': 1}),
+            NullableJSONModel.objects.filter(value__exact={'a': 'b', 'c': 14}),
             [self.object_data[2]]
         )
 
@@ -538,17 +538,17 @@ class TestQuerying(TestCase):
 
     def test_deep_lookup_transform(self):
         self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(value__c__gt=1),
-            []
+            NullableJSONModel.objects.filter(value__c__gt=2),
+            [self.object_data[2], self.object_data[3]]
         )
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__c__lt=5),
-            [self.object_data[2], self.object_data[3]]
+            []
         )
 
     def test_usage_in_subquery(self):
         self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(id__in=NullableJSONModel.objects.filter(value__c=1)),
+            NullableJSONModel.objects.filter(id__in=NullableJSONModel.objects.filter(value__c=14)),
             self.object_data[2:4]
         )
 
