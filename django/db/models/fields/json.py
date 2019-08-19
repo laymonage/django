@@ -266,13 +266,7 @@ class JSONExact(lookups.Exact):
         if rhs == '%s' and rhs_params == [None]:
             rhs, rhs_params = ('%s', ['null'])
         if connection.vendor == 'mysql':
-            func = []
-            for value in rhs_params:
-                obj = json.loads(value)
-                if connection.mysql_is_mariadb and isinstance(obj, str):
-                    func.append("JSON_UNQUOTE(JSON_EXTRACT(%s, '$'))")
-                else:
-                    func.append("JSON_EXTRACT(%s, '$')")
+            func = ["JSON_EXTRACT(%s, '$')" for value in rhs_params]
             rhs = rhs % tuple(func)
         return rhs, rhs_params
 
@@ -317,7 +311,10 @@ class KeyTransform(PreprocessLhsMixin, Transform):
     def as_mysql(self, compiler, connection):
         lhs, params, key_transforms = self.preprocess_lhs(compiler, connection)
         json_path = compile_json_path(key_transforms)
-        return 'JSON_EXTRACT(%s, %%s)' % lhs, params + [json_path]
+        if connection.vendor == 'mysql' and connection.mysql_is_mariadb:
+            return 'JSON_UNQUOTE(JSON_EXTRACT(%s, %%s))' % lhs, params + [json_path]
+        else:
+            return 'JSON_EXTRACT(%s, %%s)' % lhs, params + [json_path]
 
     def as_oracle(self, compiler, connection):
         lhs, params, key_transforms = self.preprocess_lhs(compiler, connection)
@@ -327,12 +324,12 @@ class KeyTransform(PreprocessLhsMixin, Transform):
     def as_postgresql(self, compiler, connection):
         lhs, params, key_transforms = self.preprocess_lhs(compiler, connection)
         if len(key_transforms) > 1:
-            return '(%s %s %%s)' % (lhs, self.postgres_nested_operator), [key_transforms] + params
+            return '(%s %s %%s)' % (lhs, self.postgres_nested_operator), params + [key_transforms]
         try:
             lookup = int(self.key_name)
         except ValueError:
             lookup = self.key_name
-        return '(%s %s %%s)' % (lhs, self.postgres_operator), [lookup] + params
+        return '(%s %s %%s)' % (lhs, self.postgres_operator), params + [lookup]
 
     def as_sqlite(self, compiler, connection):
         return self.as_mysql(compiler, connection)
@@ -361,7 +358,7 @@ class KeyTransformTextLookupMixin:
 
     def process_lhs(self, compiler, connection):
         lhs, lhs_params = super().process_lhs(compiler, connection)
-        if connection.vendor == 'mysql':
+        if connection.vendor == 'mysql' and not connection.mysql_is_mariadb:
             return 'JSON_UNQUOTE(%s)' % lhs, lhs_params
         elif connection.vendor == 'postgresql':
             self.output_field = TextField()
@@ -430,7 +427,10 @@ class KeyTransformExact(PreprocessLhsMixin, JSONExact):
         return lhs, lhs_params
 
     def process_rhs(self, compiler, connection):
-        rhs, rhs_params = super().process_rhs(compiler, connection)
+        if connection.vendor in ['mysql', 'sqlite'] and isinstance(self.rhs, KeyTransform):
+            return super(lookups.Exact, self).process_rhs(compiler, connection)
+        else:
+            rhs, rhs_params = super().process_rhs(compiler, connection)
         if connection.vendor == 'oracle':
             func = []
             for value in rhs_params:
@@ -439,6 +439,8 @@ class KeyTransformExact(PreprocessLhsMixin, JSONExact):
                     func.append("JSON_QUERY('{\"val\": %s}', '$.val')" % value)
                 else:
                     func.append("JSON_VALUE('{\"val\": %s}', '$.val')" % value)
+            if isinstance(self.rhs, KeyTransform):
+                func *= 2
             rhs = rhs % tuple(func)
             rhs_params = []
         elif connection.vendor == 'sqlite':

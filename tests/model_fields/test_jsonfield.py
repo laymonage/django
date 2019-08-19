@@ -11,8 +11,8 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection, models, transaction
 from django.db.models import Count, F, Q, Value
 from django.db.models.expressions import RawSQL
-from django.db.models.functions import Cast
 from django.db.models.fields.json import KeyTextTransform, KeyTransform
+from django.db.models.functions import Cast
 from django.db.utils import DatabaseError, IntegrityError
 from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
 from django.test.utils import CaptureQueriesContext
@@ -406,37 +406,51 @@ class TestQuerying(TestCase):
         )
 
     def test_key_transform_raw_expression(self):
-        expr = RawSQL('%s::jsonb', ['{"x": "bar"}'])
+        if connection.vendor == 'postgresql':
+            expr = RawSQL('%s::jsonb', ['{"x": "bar"}'])
+        else:
+            expr = RawSQL('%s', ['{"x": "bar"}'])
         self.assertSequenceEqual(
-            JSONModel.objects.filter(field__foo=KeyTransform('x', expr)),
-            [self.objs[-1]],
+            NullableJSONModel.objects.filter(value__foo=KeyTransform('x', expr)),
+            [self.object_data[-1]],
         )
 
     def test_key_transform_expression(self):
+        if connection.vendor == 'oracle' or connection.vendor == 'mysql' and connection.mysql_is_mariadb:
+            expr = 'key'
+        else:
+            expr = Cast('key', models.JSONField())
         self.assertSequenceEqual(
-            JSONModel.objects.filter(field__d__0__isnull=False).annotate(
-                key=KeyTransform('d', 'field'),
+            NullableJSONModel.objects.filter(value__d__0__isnull=False).annotate(
+                key=KeyTransform('d', 'value'),
                 chain=KeyTransform('0', 'key'),
-                expr=KeyTransform('0', Cast('key', models.JSONField())),
+                expr=KeyTransform('0', expr),
             ).filter(chain=F('expr')),
-            [self.objs[8]],
+            [self.object_data[3]],
         )
 
     def test_nested_key_transform_raw_expression(self):
-        expr = RawSQL('%s::jsonb', ['{"x": {"y": "bar"}}'])
+        if connection.vendor == 'postgresql':
+            expr = RawSQL('%s::jsonb', ['{"x": {"y": "bar"}}'])
+        else:
+            expr = RawSQL('%s', ['{"x": {"y": "bar"}}'])
         self.assertSequenceEqual(
-            JSONModel.objects.filter(field__foo=KeyTransform('y', KeyTransform('x', expr))),
-            [self.objs[-1]],
+            NullableJSONModel.objects.filter(value__foo=KeyTransform('y', KeyTransform('x', expr))),
+            [self.object_data[-1]],
         )
 
     def test_nested_key_transform_expression(self):
+        if connection.vendor == 'oracle' or connection.vendor == 'mysql' and connection.mysql_is_mariadb:
+            expr = 'key'
+        else:
+            expr = Cast('key', models.JSONField())
         self.assertSequenceEqual(
-            JSONModel.objects.filter(field__d__0__isnull=False).annotate(
-                key=KeyTransform('d', 'field'),
+            NullableJSONModel.objects.filter(value__d__0__isnull=False).annotate(
+                key=KeyTransform('d', 'value'),
                 chain=KeyTransform('f', KeyTransform('1', 'key')),
-                expr=KeyTransform('f', KeyTransform('1', Cast('key', models.JSONField()))),
+                expr=KeyTransform('f', KeyTransform('1', expr)),
             ).filter(chain=F('expr')),
-            [self.objs[8]],
+            [self.object_data[3]],
         )
 
     def test_deep_values(self):
