@@ -427,8 +427,11 @@ class KeyTransformExact(PreprocessLhsMixin, JSONExact):
         return lhs, lhs_params
 
     def process_rhs(self, compiler, connection):
-        if connection.vendor in ['mysql', 'sqlite'] and isinstance(self.rhs, KeyTransform):
-            return super(lookups.Exact, self).process_rhs(compiler, connection)
+        if isinstance(self.rhs, KeyTransform):
+            rhs, rhs_params = super(lookups.Exact, self).process_rhs(compiler, connection)
+            if connection.vendor == 'oracle':
+                rhs_params *= 2
+            return rhs, rhs_params
         else:
             rhs, rhs_params = super().process_rhs(compiler, connection)
         if connection.vendor == 'oracle':
@@ -439,8 +442,6 @@ class KeyTransformExact(PreprocessLhsMixin, JSONExact):
                     func.append("JSON_QUERY('{\"val\": %s}', '$.val')" % value)
                 else:
                     func.append("JSON_VALUE('{\"val\": %s}', '$.val')" % value)
-            if isinstance(self.rhs, KeyTransform):
-                func *= 2
             rhs = rhs % tuple(func)
             rhs_params = []
         elif connection.vendor == 'sqlite':
