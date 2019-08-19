@@ -83,7 +83,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         cursor.execute('PRAGMA table_info(%s)' % self.connection.ops.quote_name(table_name))
         table_info = cursor.fetchall()
         json_columns = set()
-        if self.connection.features.can_introspect_jsonfield:
+        if self.connection.features.can_introspect_json_field:
             for line in table_info:
                 column = line[1]
                 has_json_constraint = cursor.execute(

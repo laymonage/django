@@ -84,7 +84,7 @@ class InspectDBTestCase(TestCase):
             assertFieldType('uuid_field', "models.UUIDField()")
         elif not connection.features.interprets_empty_strings_as_nulls:
             assertFieldType('uuid_field', "models.CharField(max_length=32)")
-        if connection.features.can_introspect_jsonfield:
+        if connection.features.can_introspect_json_field:
             if not connection.features.interprets_empty_strings_as_nulls:
                 assertFieldType('json_field', "models.JSONField()")
             assertFieldType('null_json_field', "models.JSONField(blank=True, null=True)")

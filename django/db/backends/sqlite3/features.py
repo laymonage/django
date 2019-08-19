@@ -56,5 +56,5 @@ class DatabaseFeatures(BaseDatabaseFeatures):
         return True
 
     @cached_property
-    def can_introspect_jsonfield(self):
+    def can_introspect_json_field(self):
         return self.supports_json_field

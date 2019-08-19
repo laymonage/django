@@ -420,7 +420,7 @@ backends.
   :class:`~django.db.models.JSONField` or set
   ``DatabaseFeatures.supports_json_field`` to ``False``. If ``JSONField``
   introspection is also implemented, set
-  ``DatabaseFeatures.can_introspect_jsonfield`` to ``True``.
+  ``DatabaseFeatures.can_introspect_json_field`` to ``True``.
 
 :mod:`django.contrib.admin`
 ---------------------------
