@@ -79,10 +79,6 @@ If your project uses the PostgreSQL ``JSONField`` form field, model field,
 and create a migration. For now, the old fields and transforms are left as a
 reference to the new ones and are deprecated as of this release.
 
-Undocumented classes ``InvalidJSONInput`` and ``JSONString`` have been moved
-from ``django.contrib.postgres.forms.jsonb`` to :mod:`django.forms.fields`,
-and ``django.contrib.postgres.fields.jsonb.JsonAdapter`` has been removed.
-
 Minor features
 --------------
 

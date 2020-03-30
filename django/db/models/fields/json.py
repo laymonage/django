@@ -13,6 +13,8 @@ from django.utils.translation import gettext_lazy as _
 from . import Field
 from .mixins import CheckFieldDefaultMixin
 
+__all__ = ['JSONField']
+
 
 class JSONField(CheckFieldDefaultMixin, Field):
     description = _('A JSON object')
@@ -22,12 +24,12 @@ class JSONField(CheckFieldDefaultMixin, Field):
     _default_hint = ('dict', '{}')
 
     def __init__(
-        self, verbose_name=None, name=None, encoder=None,
-        decoder=None, *args, **kwargs
+        self, verbose_name=None, name=None, encoder=None, decoder=None,
+        **kwargs,
     ):
         self.encoder = encoder
         self.decoder = decoder
-        super().__init__(verbose_name, name, *args, **kwargs)
+        super().__init__(verbose_name, name, **kwargs)
 
     def check(self, **kwargs):
         errors = super().check(**kwargs)

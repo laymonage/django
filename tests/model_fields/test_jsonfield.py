@@ -3,8 +3,6 @@ import operator
 import uuid
 from unittest import skipIf
 
-from tests.forms_tests.field_tests.test_jsonfield import CustomDecoder
-
 from django import forms
 from django.core import checks, serializers
 from django.core.exceptions import ValidationError
@@ -24,6 +22,16 @@ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
 from django.test.utils import CaptureQueriesContext, isolate_apps
 
 from .models import JSONModel, NullableJSONModel
+
+
+class CustomDecoder(json.JSONDecoder):
+    def __init__(self, object_hook=None, *args, **kwargs):
+        return super().__init__(object_hook=self.as_uuid, *args, **kwargs)
+
+    def as_uuid(self, dct):
+        if 'uuid' in dct:
+            dct['uuid'] = uuid.UUID(dct['uuid'])
+        return dct
 
 
 class StrEncoder(json.JSONEncoder):
@@ -114,7 +122,7 @@ class TestValidation(SetEncoderDecoderMixin, TestCase):
             obj.save()
 
 
-class TestModelFormField(SimpleTestCase):
+class TestFormField(SimpleTestCase):
     def test_formfield(self):
         model_field = models.JSONField()
         form_field = model_field.formfield()

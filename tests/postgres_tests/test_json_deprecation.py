@@ -1,10 +1,11 @@
 try:
-    from django.contrib.postgres.fields import JSONField as ModelJSONField
+    from django.contrib.postgres.fields import JSONField
     from django.contrib.postgres.fields.jsonb import KeyTransform, KeyTextTransform
-    from django.contrib.postgres.forms import JSONField as FormJSONField
+    from django.contrib.postgres import forms
 except ImportError:
     pass
 
+from django.core.checks import Warning as DjangoWarning
 from django.utils.deprecation import RemovedInDjango40Warning
 
 from . import PostgreSQLSimpleTestCase
@@ -13,29 +14,26 @@ from .models import PostgreSQLModel
 
 class DeprecationTests(PostgreSQLSimpleTestCase):
     def test_model_field_deprecation_message(self):
-        warning = {
-            'msg': (
-                'django.contrib.postgres.fields.JSONField is deprecated '
-                'and will be removed in Django 4.0.'
-            ),
-            'hint': 'Use django.db.models.JSONField instead.',
-            'id': 'fields.W904',
-        }
-
         class PostgreSQLJSONModel(PostgreSQLModel):
-            field = ModelJSONField()
-        warnings = PostgreSQLJSONModel().check()
-        self.assertEqual(warnings[0].msg, warning['msg'])
-        self.assertEqual(warnings[0].hint, warning['hint'])
-        self.assertEqual(warnings[0].id, warning['id'])
+            field = JSONField()
+
+        self.assertEqual(PostgreSQLJSONModel().check(), [
+            DjangoWarning(
+                'django.contrib.postgres.fields.JSONField is deprecated and '
+                'will be removed in Django 4.0.',
+                hint='Use django.db.models.JSONField instead.',
+                obj=PostgreSQLJSONModel._meta.get_field('field'),
+                id='fields.W904',
+            ),
+        ])
 
     def test_form_field_deprecation_message(self):
         msg = (
-            'django.contrib.postgres.forms.JSONField is deprecated in favor of '
-            'django.forms.JSONField.'
+            'django.contrib.postgres.forms.JSONField is deprecated in favor '
+            'of django.forms.JSONField.'
         )
         with self.assertWarnsMessage(RemovedInDjango40Warning, msg):
-            FormJSONField()
+            forms.JSONField()
 
     def test_key_transform_deprecation_message(self):
         msg = (

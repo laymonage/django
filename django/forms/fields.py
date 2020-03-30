@@ -38,8 +38,9 @@ __all__ = (
     'RegexField', 'EmailField', 'FileField', 'ImageField', 'URLField',
     'BooleanField', 'NullBooleanField', 'ChoiceField', 'MultipleChoiceField',
     'ComboField', 'MultiValueField', 'FloatField', 'DecimalField',
-    'SplitDateTimeField', 'GenericIPAddressField', 'JSONField', 'FilePathField',
-    'SlugField', 'TypedChoiceField', 'TypedMultipleChoiceField', 'UUIDField',
+    'SplitDateTimeField', 'GenericIPAddressField', 'FilePathField',
+    'JSONField', 'SlugField', 'TypedChoiceField', 'TypedMultipleChoiceField',
+    'UUIDField',
 )
 
 
@@ -1224,7 +1225,7 @@ class JSONString(str):
 
 class JSONField(CharField):
     default_error_messages = {
-        'invalid': _('Enter a valid JSON value.'),
+        'invalid': _('Enter a valid JSON.'),
     }
     widget = Textarea
 
