@@ -224,7 +224,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         create_deterministic_function('django_time_diff', 2, _sqlite_time_diff)
         create_deterministic_function('django_timestamp_diff', 2, _sqlite_timestamp_diff)
         create_deterministic_function('django_format_dtdelta', 3, _sqlite_format_dtdelta)
-        create.deterministic_function("django_json_contains", 2, _sqlite_json_contains)
         create_deterministic_function('regexp', 2, _sqlite_regexp)
         create_deterministic_function('ACOS', 1, none_guard(math.acos))
         create_deterministic_function('ASIN', 1, none_guard(math.asin))
@@ -237,6 +236,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         create_deterministic_function('DEGREES', 1, none_guard(math.degrees))
         create_deterministic_function('EXP', 1, none_guard(math.exp))
         create_deterministic_function('FLOOR', 1, none_guard(math.floor))
+        create_deterministic_function('JSON_CONTAINS', 2, _sqlite_json_contains)
         create_deterministic_function('LN', 1, none_guard(math.log))
         create_deterministic_function('LOG', 2, none_guard(lambda x, y: math.log(y, x)))
         create_deterministic_function('LPAD', 3, _sqlite_lpad)
@@ -609,5 +609,4 @@ def _sqlite_json_contains(haystack, needle):
     target, candidate = json.loads(haystack), json.loads(needle)
     if isinstance(target, dict) and isinstance(candidate, dict):
         return target.items() >= candidate.items()
-    else:
-        return target == candidate
+    return target == candidate

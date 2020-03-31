@@ -7,7 +7,6 @@ from django.db.models import lookups
 from django.db.models.lookups import (
     FieldGetDbPrepValueMixin, Lookup, Transform,
 )
-from django.db.utils import NotSupportedError
 from django.utils.translation import gettext_lazy as _
 
 from . import Field
@@ -134,27 +133,72 @@ def compile_json_path(key_transforms):
 
 
 class SimpleFunctionOperatorMixin(FieldGetDbPrepValueMixin):
-    def as_sql_function(self, compiler, connection, template, flipped=False):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs, rhs_params = self.process_rhs(compiler, connection)
-        if flipped:
-            return template % (rhs, lhs), tuple(rhs_params) + tuple(lhs_params)
-        else:
-            return template % (lhs, rhs), tuple(lhs_params) + tuple(rhs_params)
-
-    def as_sql_operator(self, compiler, connection, operator):
+    """
+    Mixin for lookups defined with operators on PostgreSQL and with functions
+    on other databases.
+    """
+    def as_sql(self, compiler, connection, template=None):
         lhs, lhs_params = self.process_lhs(compiler, connection)
         rhs, rhs_params = self.process_rhs(compiler, connection)
         params = tuple(lhs_params) + tuple(rhs_params)
-        return '%s %s %s' % (lhs, operator, rhs), params
+        return template % (lhs, rhs), params
 
     def as_postgresql(self, compiler, connection):
-        return self.as_sql_operator(compiler, connection, self.postgres_operator)
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = tuple(lhs_params) + tuple(rhs_params)
+        return '%s %s %s' % (lhs, self.postgres_operator, rhs), params
+
+
+@JSONField.register_lookup
+class DataContains(SimpleFunctionOperatorMixin, Lookup):
+    lookup_name = 'contains'
+    postgres_operator = '@>'
 
     def as_sql(self, compiler, connection):
-        raise NotSupportedError(
-            '%s lookup is not supported by this database backend.' % self.lookup_name
-        )
+        return super().as_sql(compiler, connection, template='JSON_CONTAINS(%s, %s)')
+
+    def as_oracle(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        if isinstance(self.rhs, KeyTransform):
+            _, _, key_transforms = self.rhs.preprocess_lhs(compiler, connection)
+            return "JSON_EXISTS(%s, '%s')" % (lhs, compile_json_path(key_transforms)), []
+        else:
+            rhs = json.loads(self.rhs)
+        if isinstance(rhs, dict):
+            if not rhs:
+                return "DBMS_LOB.SUBSTR(%s) LIKE '{%%%%}'" % lhs, []
+            conditions = []
+            for key, value in rhs.items():
+                k = json.dumps(key)
+                if value is None:
+                    conditions.append(
+                        "(JSON_EXISTS(%s, '$.%s') AND"
+                        " COALESCE(JSON_QUERY(%s, '$.%s'), JSON_VALUE(%s, '$.%s')) IS NULL)" % ((lhs, k) * 3)
+                    )
+                elif isinstance(value, (list, dict)):
+                    conditions.append(
+                        "JSON_QUERY(%s, '$.%s') = JSON_QUERY('{\"val\": %s}', '$.val')" % (lhs, k, json.dumps(value))
+                    )
+                else:
+                    conditions.append(
+                        "JSON_VALUE(%s, '$.%s') = JSON_VALUE('{\"val\": %s}', '$.val')" % (lhs, k, json.dumps(value))
+                    )
+            return ' AND '.join(conditions), []
+        else:
+            return 'DBMS_LOB.SUBSTR(%s) = %%s' % lhs, [self.rhs]
+
+
+@JSONField.register_lookup
+class ContainedBy(DataContains):
+    lookup_name = 'contained_by'
+    postgres_operator = '<@'
+
+    def as_sql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = tuple(rhs_params) + tuple(lhs_params)
+        return 'JSON_CONTAINS(%s, %s)' % (rhs, lhs), params
 
 
 class HasKeyLookup(SimpleFunctionOperatorMixin, Lookup):
@@ -220,67 +264,6 @@ class HasKeys(HasAnyKeys):
     lookup_name = 'has_keys'
     postgres_operator = '?&'
     logical_operator = ' AND '
-
-
-@JSONField.register_lookup
-class DataContains(SimpleFunctionOperatorMixin, Lookup):
-    lookup_name = 'contains'
-    postgres_operator = '@>'
-
-    def as_mysql(self, compiler, connection, flipped=False):
-        return super().as_sql_function(
-            compiler, connection, template="JSON_CONTAINS(%s, %s, '$')", flipped=flipped
-        )
-
-    def as_oracle(self, compiler, connection):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        if isinstance(self.rhs, KeyTransform):
-            _, _, key_transforms = self.rhs.preprocess_lhs(compiler, connection)
-            return "JSON_EXISTS(%s, '%s')" % (lhs, compile_json_path(key_transforms)), []
-        else:
-            rhs = json.loads(self.rhs)
-        if isinstance(rhs, dict):
-            if not rhs:
-                return "DBMS_LOB.SUBSTR(%s) LIKE '{%%%%}'" % lhs, []
-            conditions = []
-            for key, value in rhs.items():
-                k = json.dumps(key)
-                if value is None:
-                    conditions.append(
-                        "(JSON_EXISTS(%s, '$.%s') AND"
-                        " COALESCE(JSON_QUERY(%s, '$.%s'), JSON_VALUE(%s, '$.%s')) IS NULL)" % ((lhs, k) * 3)
-                    )
-                elif isinstance(value, (list, dict)):
-                    conditions.append(
-                        "JSON_QUERY(%s, '$.%s') = JSON_QUERY('{\"val\": %s}', '$.val')" % (lhs, k, json.dumps(value))
-                    )
-                else:
-                    conditions.append(
-                        "JSON_VALUE(%s, '$.%s') = JSON_VALUE('{\"val\": %s}', '$.val')" % (lhs, k, json.dumps(value))
-                    )
-            return ' AND '.join(conditions), []
-        else:
-            return 'DBMS_LOB.SUBSTR(%s) = %%s' % lhs, [self.rhs]
-
-    def as_sqlite(self, compiler, connection, flipped=False):
-        return super().as_sql_function(
-            compiler, connection, template='django_json_contains(%s, %s)', flipped=flipped
-        )
-
-
-@JSONField.register_lookup
-class ContainedBy(DataContains):
-    lookup_name = 'contained_by'
-    postgres_operator = '<@'
-
-    def as_mysql(self, compiler, connection):
-        return super().as_mysql(compiler, connection, flipped=True)
-
-    def as_oracle(self, compiler, connection):
-        return super().as_sql(compiler, connection)
-
-    def as_sqlite(self, compiler, connection):
-        return super().as_sqlite(compiler, connection, flipped=True)
 
 
 @JSONField.register_lookup
