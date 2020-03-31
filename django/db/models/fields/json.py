@@ -132,17 +132,8 @@ def compile_json_path(key_transforms):
     return ''.join(path)
 
 
-class SimpleFunctionOperatorMixin(FieldGetDbPrepValueMixin):
-    """
-    Mixin for lookups defined with operators on PostgreSQL and with functions
-    on other databases.
-    """
-    def as_sql(self, compiler, connection, template=None):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs, rhs_params = self.process_rhs(compiler, connection)
-        params = tuple(lhs_params) + tuple(rhs_params)
-        return template % (lhs, rhs), params
-
+class PostgreSQLOperatorMixin:
+    """Mixin for lookups defined with operators on PostgreSQL."""
     def as_postgresql(self, compiler, connection):
         lhs, lhs_params = self.process_lhs(compiler, connection)
         rhs, rhs_params = self.process_rhs(compiler, connection)
@@ -151,12 +142,15 @@ class SimpleFunctionOperatorMixin(FieldGetDbPrepValueMixin):
 
 
 @JSONField.register_lookup
-class DataContains(SimpleFunctionOperatorMixin, Lookup):
+class DataContains(PostgreSQLOperatorMixin, FieldGetDbPrepValueMixin, Lookup):
     lookup_name = 'contains'
     postgres_operator = '@>'
 
     def as_sql(self, compiler, connection):
-        return super().as_sql(compiler, connection, template='JSON_CONTAINS(%s, %s)')
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = tuple(lhs_params) + tuple(rhs_params)
+        return 'JSON_CONTAINS(%s, %s)' % (lhs, rhs), params
 
     def as_oracle(self, compiler, connection):
         lhs, lhs_params = self.process_lhs(compiler, connection)
@@ -201,7 +195,7 @@ class ContainedBy(DataContains):
         return 'JSON_CONTAINS(%s, %s)' % (rhs, lhs), params
 
 
-class HasKeyLookup(SimpleFunctionOperatorMixin, Lookup):
+class HasKeyLookup(PostgreSQLOperatorMixin, FieldGetDbPrepValueMixin, Lookup):
     logical_operator = None
 
     def as_sql(self, compiler, connection, template=None):
