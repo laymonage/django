@@ -340,6 +340,7 @@ class TestQuerying(TestCase):
                 'i': False,
                 'j': None,
                 'k': {'l': 'm'},
+                'n': [None],
             },
             [1, [2]],
             {'k': True, 'l': False},
@@ -392,6 +393,12 @@ class TestQuerying(TestCase):
                     NullableJSONModel.objects.filter(value__contains=value).exists()
                 )
 
+    def test_contains_dict(self):
+        query = NullableJSONModel.objects.filter(
+            value__contains={'baz': {'a': 'b', 'c': 'd'}},
+        )
+        self.assertSequenceEqual(query, [self.objs[7]])
+
     def test_contains_empty_dict(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__contains={}),
@@ -419,12 +426,13 @@ class TestQuerying(TestCase):
             [self.objs[5]]
         )
 
+    def test_contains_null_array(self):
+        query = NullableJSONModel.objects.filter(value__contains={'n': [None]})
+        self.assertSequenceEqual(query, [self.objs[4]])
+
     def test_contains_null(self):
-        query = NullableJSONModel.objects.filter(value__contains={'i': False, 'j': None})
-        self.assertSequenceEqual(
-            query,
-            [self.objs[4]]
-        )
+        query = NullableJSONModel.objects.filter(value__contains={'j': None})
+        self.assertSequenceEqual(query, [self.objs[4]])
 
     @skipIf(connection.vendor == 'oracle', "Oracle does not support 'contained_by' lookup.")
     def test_contained_by(self):

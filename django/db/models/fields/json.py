@@ -162,23 +162,13 @@ class DataContains(PostgreSQLOperatorMixin, FieldGetDbPrepValueMixin, Lookup):
         if isinstance(rhs, dict):
             if not rhs:
                 return "DBMS_LOB.SUBSTR(%s) LIKE '{%%%%}'" % lhs, []
-            conditions = []
-            for key, value in rhs.items():
-                k = json.dumps(key)
-                if value is None:
-                    conditions.append(
-                        "(JSON_EXISTS(%s, '$.%s') AND"
-                        " COALESCE(JSON_QUERY(%s, '$.%s'), JSON_VALUE(%s, '$.%s')) IS NULL)" % ((lhs, k) * 3)
-                    )
-                elif isinstance(value, (list, dict)):
-                    conditions.append(
-                        "JSON_QUERY(%s, '$.%s') = JSON_QUERY('{\"val\": %s}', '$.val')" % (lhs, k, json.dumps(value))
-                    )
-                else:
-                    conditions.append(
-                        "JSON_VALUE(%s, '$.%s') = JSON_VALUE('{\"val\": %s}', '$.val')" % (lhs, k, json.dumps(value))
-                    )
-            return ' AND '.join(conditions), []
+            return ' AND '.join([
+                "JSON_QUERY(%s, '$.%s' WITH WRAPPER) = "
+                "JSON_QUERY('%s', '$.value' WITH WRAPPER)" % (
+                    lhs, json.dumps(key), json.dumps({'value': value}),
+                )
+                for key, value in rhs.items()
+            ]), []
         else:
             return 'DBMS_LOB.SUBSTR(%s) = %%s' % lhs, [self.rhs]
 
