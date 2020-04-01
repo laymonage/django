@@ -4,9 +4,7 @@ from django import forms
 from django.core import checks, exceptions
 from django.db import connections, router
 from django.db.models import lookups
-from django.db.models.lookups import (
-    FieldGetDbPrepValueMixin, Lookup, Transform,
-)
+from django.db.models.lookups import PostgresOperatorLookup, Transform
 from django.utils.translation import gettext_lazy as _
 
 from . import Field
@@ -132,17 +130,8 @@ def compile_json_path(key_transforms):
     return ''.join(path)
 
 
-class PostgreSQLOperatorMixin:
-    """Mixin for lookups defined with operators on PostgreSQL."""
-    def as_postgresql(self, compiler, connection):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs, rhs_params = self.process_rhs(compiler, connection)
-        params = tuple(lhs_params) + tuple(rhs_params)
-        return '%s %s %s' % (lhs, self.postgres_operator, rhs), params
-
-
 @JSONField.register_lookup
-class DataContains(PostgreSQLOperatorMixin, FieldGetDbPrepValueMixin, Lookup):
+class DataContains(PostgresOperatorLookup):
     lookup_name = 'contains'
     postgres_operator = '@>'
 
@@ -185,7 +174,7 @@ class ContainedBy(DataContains):
         return 'JSON_CONTAINS(%s, %s)' % (rhs, lhs), params
 
 
-class HasKeyLookup(PostgreSQLOperatorMixin, FieldGetDbPrepValueMixin, Lookup):
+class HasKeyLookup(PostgresOperatorLookup):
     logical_operator = None
 
     def as_sql(self, compiler, connection, template=None):
