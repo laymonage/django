@@ -61,7 +61,6 @@ class JSONField(CheckFieldDefaultMixin, Field):
 
     def deconstruct(self):
         name, path, args, kwargs = super().deconstruct()
-        path = 'django.db.models.JSONField'
         if self.encoder is not None:
             kwargs['encoder'] = self.encoder
         if self.decoder is not None:

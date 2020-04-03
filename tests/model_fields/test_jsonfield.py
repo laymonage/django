@@ -1,7 +1,6 @@
-import json
 import operator
 import uuid
-from unittest import skipIf
+from unittest import mock, skipIf
 
 from django import forms
 from django.core import checks, serializers
@@ -21,48 +20,46 @@ from django.db.utils import DatabaseError
 from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
 from django.test.utils import CaptureQueriesContext, isolate_apps
 
-from .models import JSONModel, NullableJSONModel
+from .models import CustomJSONDecoder, JSONModel, NullableJSONModel
 
 
-class CustomDecoder(json.JSONDecoder):
-    def __init__(self, object_hook=None, *args, **kwargs):
-        return super().__init__(object_hook=self.as_uuid, *args, **kwargs)
+@skipUnlessDBFeature('supports_json_field')
+class JSONFieldTests(TestCase):
+    def test_invalid_value(self):
+        msg = 'is not JSON serializable'
+        with self.assertRaisesMessage(TypeError, msg):
+            NullableJSONModel.objects.create(value={
+                'uuid': uuid.UUID('d85e2076-b67c-4ee7-8c3a-2bf5a2cc2475'),
+            })
 
-    def as_uuid(self, dct):
-        if 'uuid' in dct:
-            dct['uuid'] = uuid.UUID(dct['uuid'])
-        return dct
+    def test_custom_encoder_decoder(self):
+        value = {'uuid': uuid.UUID('{d85e2076-b67c-4ee7-8c3a-2bf5a2cc2475}')}
+        obj = NullableJSONModel(value_custom=value)
+        obj.clean_fields()
+        obj.save()
+        obj.refresh_from_db()
+        self.assertEqual(obj.value_custom, value)
 
-
-class StrEncoder(json.JSONEncoder):
-    def encode(self, obj):
-        return str(obj)
-
-
-class SetEncoderDecoderMixin:
-    def _set_encoder_decoder(self, encoder, decoder):
-        field = JSONModel._meta.get_field('value')
-        field.encoder, field.decoder = encoder, decoder
-        return field.check()
-
-    def tearDown(self):
-        self._set_encoder_decoder(None, None)
-        return super().tearDown()
+    def test_db_check_constraints(self):
+        value = '{@!invalid json value 123 $!@#'
+        with mock.patch.object(DjangoJSONEncoder, 'encode', return_value=value):
+            with self.assertRaises((IntegrityError, DataError, OperationalError)):
+                NullableJSONModel.objects.create(value_custom=value)
 
 
-class TestFieldMeta(SetEncoderDecoderMixin, TestCase):
-    def test_deconstruction(self):
-        field = models.JSONField(
-            'JSON data', 'data', default=list, encoder=DjangoJSONEncoder, decoder=CustomDecoder
-        )
+class TestMethods(SimpleTestCase):
+    def test_deconstruct(self):
+        field = models.JSONField()
         name, path, args, kwargs = field.deconstruct()
-        self.assertEqual(name, 'data')
         self.assertEqual(path, 'django.db.models.JSONField')
         self.assertEqual(args, [])
-        self.assertEqual(kwargs, {
-            'verbose_name': 'JSON data', 'default': list,
-            'encoder': DjangoJSONEncoder, 'decoder': CustomDecoder
-        })
+        self.assertEqual(kwargs, {})
+
+    def test_deconstruct_custom_encoder_decoder(self):
+        field = models.JSONField(encoder=DjangoJSONEncoder, decoder=CustomJSONDecoder)
+        name, path, args, kwargs = field.deconstruct()
+        self.assertEqual(kwargs['encoder'], DjangoJSONEncoder)
+        self.assertEqual(kwargs['decoder'], CustomJSONDecoder)
 
     def test_get_transforms(self):
         @models.JSONField.register_lookup
@@ -85,51 +82,28 @@ class TestFieldMeta(SetEncoderDecoderMixin, TestCase):
             KeyTransformTextLookupMixin(transform)
 
 
-class TestValidation(SetEncoderDecoderMixin, TestCase):
-
-    @classmethod
-    def setUpTestData(cls):
-        cls.uuid_value = {'uuid': uuid.UUID('{12345678-1234-5678-1234-567812345678}')}
-
-    def test_validation_error(self):
-        field = models.JSONField()
-        with self.assertRaises(ValidationError) as err:
-            field.clean(self.uuid_value, None)
-        self.assertEqual(err.exception.code, 'invalid')
-        self.assertEqual(err.exception.message % err.exception.params, 'Value must be valid JSON.')
-
-    def test_not_serializable(self):
-        obj = JSONModel(value=self.uuid_value)
-        msg = 'is not JSON serializable'
-        with self.assertRaisesMessage(TypeError, msg):
-            obj.save()
-
+class TestValidation(SimpleTestCase):
     def test_invalid_encoder(self):
         msg = 'The encoder parameter must be a callable object.'
         with self.assertRaisesMessage(ValueError, msg):
-            field = models.JSONField(encoder=DjangoJSONEncoder())
+            models.JSONField(encoder=DjangoJSONEncoder())
 
     def test_invalid_decoder(self):
         msg = 'The decoder parameter must be a callable object.'
         with self.assertRaisesMessage(ValueError, msg):
-            field = models.JSONField(decoder=CustomDecoder())
+            models.JSONField(decoder=CustomJSONDecoder())
 
-    @skipUnlessDBFeature('supports_json_field')
-    def test_custom_encoder_decoder(self):
-        self._set_encoder_decoder(DjangoJSONEncoder, CustomDecoder)
-        obj = JSONModel(value=self.uuid_value)
-        obj.clean_fields()
-        obj.save()
-        obj.refresh_from_db()
-        self.assertEqual(obj.value, self.uuid_value)
+    def test_validation_error(self):
+        field = models.JSONField()
+        msg = 'Value must be valid JSON.'
+        value = uuid.UUID('{d85e2076-b67c-4ee7-8c3a-2bf5a2cc2475}')
+        with self.assertRaisesMessage(ValidationError, msg):
+            field.clean({'uuid': value}, None)
 
-    @skipUnlessDBFeature('supports_json_field')
-    def test_db_check_constraints(self):
-        value = '{@!invalid json value 123 $!@#'
-        self._set_encoder_decoder(StrEncoder, None)
-        obj = JSONModel(value=value)
-        with self.assertRaises((IntegrityError, DataError, OperationalError)):
-            obj.save()
+    def test_custom_encoder(self):
+        field = models.JSONField(encoder=DjangoJSONEncoder)
+        value = uuid.UUID('{d85e2076-b67c-4ee7-8c3a-2bf5a2cc2475}')
+        field.clean({'uuid': value}, None)
 
 
 class TestFormField(SimpleTestCase):
@@ -139,10 +113,10 @@ class TestFormField(SimpleTestCase):
         self.assertIsInstance(form_field, forms.JSONField)
 
     def test_formfield_custom_encoder_decoder(self):
-        model_field = models.JSONField(encoder=DjangoJSONEncoder, decoder=CustomDecoder)
+        model_field = models.JSONField(encoder=DjangoJSONEncoder, decoder=CustomJSONDecoder)
         form_field = model_field.formfield()
         self.assertIs(form_field.encoder, DjangoJSONEncoder)
-        self.assertIs(form_field.decoder, CustomDecoder)
+        self.assertIs(form_field.decoder, CustomJSONDecoder)
 
 
 @isolate_apps('model_fields')
