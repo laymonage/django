@@ -1241,8 +1241,7 @@ To query ``JSONField`` in the database, see
 
     Oracle Database does not support storing JSON scalar values. Only JSON
     objects and arrays (represented in Python using :py:class:`dict` and
-    :py:class:`list`) are supported. Oracle Database supports storing JSON data
-    using ``VARCHAR2`` and ``LOB`` SQL data types. ``JSONField`` uses ``NCLOB``.
+    :py:class:`list`) are supported.
 
 .. admonition:: SQLite users
 
