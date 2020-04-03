@@ -233,10 +233,7 @@ class TestSaveLoad(TestCase):
         obj = NullableJSONModel(value=None)
         obj.save()
         obj.refresh_from_db()
-        self.assertEqual(
-            obj.value,
-            '' if connection.features.interprets_empty_strings_as_nulls else None,
-        )
+        self.assertIsNone(obj.value)
 
     @skipUnlessDBFeature('supports_primitives_in_json_field')
     def test_json_null_different_from_sql_null(self):
@@ -490,12 +487,11 @@ class TestQuerying(TestCase):
                 [1, 11],
                 operator.itemgetter('count'),
             )
-        expected = [(None, 0), ('g', 1)] if connection.vendor != 'oracle' else [('', 0), ('g', 1)]
         self.assertQuerysetEqual(
             qs.filter(value__isnull=False).annotate(
                 key=KeyTextTransform('f', KeyTransform('1', KeyTransform('d', 'value'))),
             ).values('key').annotate(count=Count('key')).order_by('count'),
-            expected,
+            [(None, 0), ('g', 1)],
             operator.itemgetter('key', 'count'),
         )
 
@@ -548,11 +544,10 @@ class TestQuerying(TestCase):
         )
 
     def test_deep_values(self):
-        query = NullableJSONModel.objects.values_list('value__k__l')
-        empty = ('',) if connection.features.interprets_empty_strings_as_nulls else (None,)
-        expected_objs = [empty] * len(self.objs)
+        qs = NullableJSONModel.objects.values_list('value__k__l')
+        expected_objs = [(None,)] * len(self.objs)
         expected_objs[4] = ('m',)
-        self.assertSequenceEqual(query, expected_objs)
+        self.assertSequenceEqual(qs, expected_objs)
 
     @skipUnlessDBFeature('can_distinct_on_fields')
     def test_deep_distinct(self):
