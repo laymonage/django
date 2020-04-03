@@ -104,6 +104,16 @@ class TestValidation(SetEncoderDecoderMixin, TestCase):
         with self.assertRaisesMessage(TypeError, msg):
             obj.save()
 
+    def test_invalid_encoder(self):
+        msg = 'The encoder parameter must be a callable object.'
+        with self.assertRaisesMessage(ValueError, msg):
+            field = models.JSONField(encoder=DjangoJSONEncoder())
+
+    def test_invalid_decoder(self):
+        msg = 'The decoder parameter must be a callable object.'
+        with self.assertRaisesMessage(ValueError, msg):
+            field = models.JSONField(decoder=CustomDecoder())
+
     @skipUnlessDBFeature('supports_json_field')
     def test_custom_encoder_decoder(self):
         self._set_encoder_decoder(DjangoJSONEncoder, CustomDecoder)
