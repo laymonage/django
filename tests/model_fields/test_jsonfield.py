@@ -1,13 +1,14 @@
 import operator
 import uuid
-from unittest import mock, skipIf
+from unittest import mock, skipIf, skipUnless
 
 from django import forms
 from django.core import checks, serializers
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import (
-    DataError, IntegrityError, OperationalError, connection, models,
+    DataError, IntegrityError, NotSupportedError, OperationalError, connection,
+    models,
 )
 from django.db.models import Count, F, OuterRef, Q, Subquery, Transform, Value
 from django.db.models.expressions import RawSQL
@@ -415,13 +416,22 @@ class TestQuerying(TestCase):
         query = NullableJSONModel.objects.filter(value__contains={'j': None})
         self.assertSequenceEqual(query, [self.objs[4]])
 
-    @skipIf(connection.vendor == 'oracle', "Oracle does not support 'contained_by' lookup.")
+    @skipIf(
+        connection.vendor == 'oracle',
+        "Oracle doesn't support contained_by lookup.",
+    )
     def test_contained_by(self):
         query = NullableJSONModel.objects.filter(value__contained_by={'a': 'b', 'c': 14, 'h': True})
-        self.assertSequenceEqual(
-            query,
-            [self.objs[2], self.objs[3]]
-        )
+        self.assertSequenceEqual(query, self.objs[2:4])
+
+    @skipUnless(
+        connection.vendor == 'oracle',
+        "Oracle doesn't support contained_by lookup.",
+    )
+    def test_contained_by_unsupported(self):
+        msg = 'contained_by lookup is not supported on Oracle.'
+        with self.assertRaisesMessage(NotSupportedError, msg):
+            NullableJSONModel.objects.filter(value__contained_by={'a': 'b'}).get()
 
     def test_exact(self):
         self.assertSequenceEqual(
@@ -685,23 +695,27 @@ class TestQuerying(TestCase):
         )
 
     def test_lookups_with_key_transform(self):
-        sql = '%s::jsonb' if connection.vendor == 'postgresql' else '%s'
         tests = (
             ('value__d__contains', 'e'),
-            ('value__baz__contained_by', {'a': 'b', 'c': 'd', 'e': 'f'}),
             ('value__baz__has_key', 'c'),
             ('value__baz__has_keys', ['a', 'c']),
             ('value__baz__has_any_keys', ['a', 'x']),
             ('value__contains', KeyTransform('bax', 'value')),
-            (
-                'value__contained_by',
-                KeyTransform('x', RawSQL(sql, ['{"x": {"a": "b", "c": 1, "d": "e"}}'])),
-            ),
             ('value__has_key', KeyTextTransform('foo', 'value')),
         )
-        if connection.vendor == 'oracle':
-            # contained_by is not supported in Oracle.
-            tests = tests[0:1] + tests[2:6] + tests[7:]
+        # contained_by lookup is not supported on Oracle.
+        if connection.vendor != 'oracle':
+            sql = '%s::jsonb' if connection.vendor == 'postgresql' else '%s'
+            tests += (
+                ('value__baz__contained_by', {'a': 'b', 'c': 'd', 'e': 'f'}),
+                (
+                    'value__contained_by',
+                    KeyTransform('x', RawSQL(
+                        sql,
+                        ['{"x": {"a": "b", "c": 1, "d": "e"}}'],
+                    )),
+                ),
+            )
         for lookup, value in tests:
             with self.subTest(lookup=lookup):
                 self.assertTrue(NullableJSONModel.objects.filter(

@@ -2,7 +2,7 @@ import json
 
 from django import forms
 from django.core import checks, exceptions
-from django.db import connections, router
+from django.db import NotSupportedError, connections, router
 from django.db.models import lookups
 from django.db.models.lookups import PostgresOperatorLookup, Transform
 from django.utils.translation import gettext_lazy as _
@@ -168,7 +168,7 @@ class DataContains(PostgresOperatorLookup):
 
 
 @JSONField.register_lookup
-class ContainedBy(DataContains):
+class ContainedBy(PostgresOperatorLookup):
     lookup_name = 'contained_by'
     postgres_operator = '<@'
 
@@ -177,6 +177,9 @@ class ContainedBy(DataContains):
         rhs, rhs_params = self.process_rhs(compiler, connection)
         params = tuple(rhs_params) + tuple(lhs_params)
         return 'JSON_CONTAINS(%s, %s)' % (rhs, lhs), params
+
+    def as_oracle(self, compiler, connection):
+        raise NotSupportedError('contained_by lookup is not supported on Oracle.')
 
 
 class HasKeyLookup(PostgresOperatorLookup):
