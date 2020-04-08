@@ -541,6 +541,7 @@ We will use the following example model::
             return self.name
 
 .. fieldlookup:: jsonfield.key
+    :noindex:
 
 Key, index, and path lookups
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -600,10 +601,15 @@ Containment and key operations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. fieldlookup:: jsonfield.contains
+    :noindex:
 .. fieldlookup:: jsonfield.contained_by
+    :noindex:
 .. fieldlookup:: jsonfield.has_key
+    :noindex:
 .. fieldlookup:: jsonfield.has_any_keys
+    :noindex:
 .. fieldlookup:: jsonfield.has_keys
+    :noindex:
 
 :class:`~django.contrib.postgres.fields.JSONField` shares lookups relating to
 containment and keys with :class:`~django.contrib.postgres.fields.HStoreField`.
