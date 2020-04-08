@@ -148,23 +148,25 @@ class DataContains(PostgresOperatorLookup):
 
     def as_oracle(self, compiler, connection):
         lhs, lhs_params = self.process_lhs(compiler, connection)
+        params = tuple(lhs_params)
         if isinstance(self.rhs, KeyTransform):
             _, _, key_transforms = self.rhs.preprocess_lhs(compiler, connection)
             return "JSON_EXISTS(%s, '%s')" % (lhs, compile_json_path(key_transforms)), []
         else:
             rhs = json.loads(self.rhs)
+        sql = (
+            "JSON_QUERY(%s, '$%s' WITH WRAPPER) = "
+            "JSON_QUERY('%s', '$.value' WITH WRAPPER)"
+        )
         if isinstance(rhs, dict):
             if not rhs:
-                return "DBMS_LOB.SUBSTR(%s) LIKE '{%%%%}'" % lhs, []
+                return "DBMS_LOB.SUBSTR(%s) LIKE '{%%%%}'" % lhs, params
             return ' AND '.join([
-                "JSON_QUERY(%s, '$.%s' WITH WRAPPER) = "
-                "JSON_QUERY('%s', '$.value' WITH WRAPPER)" % (
-                    lhs, json.dumps(key), json.dumps({'value': value}),
-                )
-                for key, value in rhs.items()
-            ]), []
-        else:
-            return 'DBMS_LOB.SUBSTR(%s) = %%s' % lhs, [self.rhs]
+                sql % (
+                    lhs, '.%s' % json.dumps(key), json.dumps({'value': value}),
+                ) for key, value in rhs.items()
+            ]), params
+        return sql % (lhs, '', json.dumps({'value': rhs})), params
 
 
 @JSONField.register_lookup

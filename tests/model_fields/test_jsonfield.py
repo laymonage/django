@@ -367,62 +367,35 @@ class TestQuerying(TestCase):
             [self.objs[3], self.objs[4], self.objs[6]],
         )
 
+    def test_contains(self):
+        tests = [
+            ({}, self.objs[2:5] + self.objs[6:8]),
+            ({'baz': {'a': 'b', 'c': 'd'}}, [self.objs[7]]),
+            ({'k': True, 'l': False}, [self.objs[6]]),
+            ({'d': ['e', {'f': 'g'}]}, [self.objs[4]]),
+            ([1, [2]], [self.objs[5]]),
+            ({'n': [None]}, [self.objs[4]]),
+            ({'j': None}, [self.objs[4]]),
+        ]
+        for value, expected in tests:
+            with self.subTest(value=value):
+                qs = NullableJSONModel.objects.filter(value__contains=value)
+                self.assertSequenceEqual(qs, expected)
+
     @skipUnlessDBFeature('supports_primitives_in_json_field')
     def test_contains_primitives(self):
         for value in self.primitives:
             with self.subTest(value=value):
-                self.assertTrue(
-                    NullableJSONModel.objects.filter(value__contains=value).exists()
-                )
-
-    def test_contains_dict(self):
-        query = NullableJSONModel.objects.filter(
-            value__contains={'baz': {'a': 'b', 'c': 'd'}},
-        )
-        self.assertSequenceEqual(query, [self.objs[7]])
-
-    def test_contains_empty_dict(self):
-        self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(value__contains={}),
-            self.objs[2:5] + self.objs[6:8],
-        )
-
-    def test_contains_multiple(self):
-        query = NullableJSONModel.objects.filter(value__contains={'k': True, 'l': False})
-        self.assertSequenceEqual(
-            query,
-            [self.objs[6]]
-        )
-
-    def test_contains_complex(self):
-        query = NullableJSONModel.objects.filter(value__contains={'d': ['e', {'f': 'g'}]})
-        self.assertSequenceEqual(
-            query,
-            [self.objs[4]]
-        )
-
-    def test_contains_array(self):
-        query = NullableJSONModel.objects.filter(value__contains=[1, [2]])
-        self.assertSequenceEqual(
-            query,
-            [self.objs[5]]
-        )
-
-    def test_contains_null_array(self):
-        query = NullableJSONModel.objects.filter(value__contains={'n': [None]})
-        self.assertSequenceEqual(query, [self.objs[4]])
-
-    def test_contains_null(self):
-        query = NullableJSONModel.objects.filter(value__contains={'j': None})
-        self.assertSequenceEqual(query, [self.objs[4]])
+                qs = NullableJSONModel.objects.filter(value__contains=value)
+                self.assertIs(qs.exists(), True)
 
     @skipIf(
         connection.vendor == 'oracle',
         "Oracle doesn't support contained_by lookup.",
     )
     def test_contained_by(self):
-        query = NullableJSONModel.objects.filter(value__contained_by={'a': 'b', 'c': 14, 'h': True})
-        self.assertSequenceEqual(query, self.objs[2:4])
+        qs = NullableJSONModel.objects.filter(value__contained_by={'a': 'b', 'c': 14, 'h': True})
+        self.assertSequenceEqual(qs, self.objs[2:4])
 
     @skipUnless(
         connection.vendor == 'oracle',
@@ -647,7 +620,7 @@ class TestQuerying(TestCase):
         self.assertTrue(NullableJSONModel.objects.filter(value__foo__iexact='BaR').exists())
         self.assertFalse(NullableJSONModel.objects.filter(value__foo__iexact='"BaR"').exists())
 
-    def test_contains(self):
+    def test_key_contains(self):
         self.assertTrue(NullableJSONModel.objects.filter(value__foo__contains='ar').exists())
 
     def test_icontains(self):
