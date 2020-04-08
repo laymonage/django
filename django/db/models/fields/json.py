@@ -70,13 +70,12 @@ class JSONField(CheckFieldDefaultMixin, Field):
     def from_db_value(self, value, expression, connection):
         if value is None:
             return value
-        elif connection.vendor == 'postgresql' and self.decoder is None:
+        if connection.features.has_native_json_field and self.decoder is None:
             return value
-        else:
-            try:
-                return json.loads(value, cls=self.decoder)
-            except json.JSONDecodeError:
-                return value
+        try:
+            return json.loads(value, cls=self.decoder)
+        except json.JSONDecodeError:
+            return value
 
     def get_internal_type(self):
         return 'JSONField'
@@ -93,9 +92,11 @@ class JSONField(CheckFieldDefaultMixin, Field):
         return KeyTransformFactory(name)
 
     def select_format(self, compiler, sql, params):
-        if compiler.connection.vendor == 'postgresql' and self.decoder is not None:
-            # Avoid psycopg2's automatic decoding to allow custom decoder
-            return '%s::text' % sql, params
+        if (
+            compiler.connection.features.has_native_json_field and
+            self.decoder is not None
+        ):
+            return compiler.connection.ops.json_cast_text_sql(sql), params
         return super().select_format(compiler, sql, params)
 
     def validate(self, value, model_instance):
