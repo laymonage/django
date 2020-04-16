@@ -343,22 +343,31 @@ class TestQuerying(TestCase):
                 for value in cls.primitives
             ])
 
-    def test_has_key_with_null_value(self):
-        self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(value__has_key='j'),
-            [self.objs[4]]
-        )
-
     def test_has_key(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__has_key='a'),
-            [self.objs[3], self.objs[4]]
+            [self.objs[3], self.objs[4]],
         )
+
+    def test_has_key_null_value(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__has_key='j'),
+            [self.objs[4]],
+        )
+
+    def test_has_key_list(self):
+        obj = NullableJSONModel.objects.create(value=[{'a': 1}, {'b': 'x'}])
+        qs = NullableJSONModel.objects.filter(value__0__has_key='a')
+        self.assertEqual(qs.get(), obj)
+        qs = NullableJSONModel.objects.filter(
+            value__has_key=KeyTransform('a', KeyTransform(0, 'value')),
+        )
+        self.assertEqual(qs.get(), obj)
 
     def test_has_keys(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__has_keys=['a', 'c', 'h']),
-            [self.objs[4]]
+            [self.objs[4]],
         )
 
     def test_has_any_keys(self):
