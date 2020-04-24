@@ -357,12 +357,17 @@ class TestQuerying(TestCase):
 
     def test_has_key_list(self):
         obj = NullableJSONModel.objects.create(value=[{'a': 1}, {'b': 'x'}])
-        qs = NullableJSONModel.objects.filter(value__0__has_key='a')
-        self.assertEqual(qs.get(), obj)
-        qs = NullableJSONModel.objects.filter(
-            value__has_key=KeyTransform('a', KeyTransform(0, 'value')),
-        )
-        self.assertEqual(qs.get(), obj)
+        tests = [
+            Q(value__0__has_key='a'),
+            Q(value__has_key=KeyTransform('a', KeyTransform(0, 'value'))),
+            Q(value__has_key=KeyTransform('a', KeyTransform('0', 'value'))),
+        ]
+        for condition in tests:
+            with self.subTest(condition=condition):
+                self.assertSequenceEqual(
+                    NullableJSONModel.objects.filter(condition),
+                    [obj],
+                )
 
     def test_has_keys(self):
         self.assertSequenceEqual(
