@@ -69,13 +69,12 @@ JSONField for all supported database backends
 
 Django now includes a :class:`models.JSONField <django.db.models.JSONField>`
 and a :class:`forms.JSONField <django.forms.JSONField>` that can be used on all
-supported database backends. Both fields support the use of custom JSON encoder
-and decoder. The model field also supports introspection, lookups, and
-transforms supported in previously PostgreSQL-only
-:class:`~django.contrib.postgres.fields.JSONField`.
+supported database backends. Both fields support the use of custom JSON
+encoders and decoders. The model field supports the introspection, lookups, and
+transforms that were previously PostgreSQL-only.
 
-If your project uses the PostgreSQL ``JSONField`` form field, model field,
-``KeyTransform``, and/or ``KeyTextTransform``, it is advised to adjust them
+If your project uses :class:`django.contrib.postgres.fields.JSONField`, plus
+the related form field and transforms, you should adjust to use the new field
 and create a migration. For now, the old fields and transforms are left as a
 reference to the new ones and are deprecated as of this release.
 

@@ -811,24 +811,29 @@ use the following example model::
 
     class Dog(models.Model):
         name = models.CharField(max_length=200)
-        data = models.JSONField()
+        data = models.JSONField(null=True)
 
         def __str__(self):
             return self.name
 
+Storing and Querying for ``None``
+---------------------------------
+
 As with other fields, storing ``None`` as the field's value will store it as
 SQL ``NULL``. While not recommended, it is possible to store JSON scalar
 ``null`` instead of SQL ``NULL`` by using
-:meth:`Value('null') <django.db.models.Value>`. However, after retrieved from
-the database, the Python representation of the data is the same as SQL
-``NULL``, i.e. ``None``. Therefore, it can be hard to distinguish between the
-two.
+:meth:`Value('null') <django.db.models.Value>`.
+
+Whichever of the values is stored, when retrieved from the database, the Python
+representation of the JSON scalar ``null`` is the same as SQL ``NULL``, i.e.
+``None``. Therefore, it can be hard to distinguish between the two.
 
 Note that this only applies to ``None`` as the top-level value of the field.
 If ``None`` is inside a :py:class:`list` or :py:class:`dict`, it will always
 be interpreted as JSON ``null``.
 
 When querying, ``None`` value will always be interpreted as JSON ``null``.
+
 To query for SQL ``NULL``, use :lookup:`isnull`.
 
 To illustrate::
@@ -843,6 +848,10 @@ To illustrate::
     >>> Dog.objects.filter(data__isnull=True)
     <QuerySet [<Dog: Max>]>
 
+Unless you are sure you wish to work with SQL ``NULL`` values, consider setting
+``null=False`` and providing a suitable default for empty values, such as
+``default=dict``.
+
 .. note::
 
     Storing JSON scalar ``null`` does not violate
@@ -853,8 +862,7 @@ To illustrate::
 Key, index, and path transforms
 -------------------------------
 
-To query based on a given dictionary key, simply use that key as the lookup
-name::
+To query based on a given dictionary key, use that key as the lookup name::
 
     >>> Dog.objects.create(name='Rufus', data={
     ...     'breed': 'labrador',
@@ -892,17 +900,6 @@ the :lookup:`contains <jsonfield.contains>` lookup instead.
     :lookup:`startswith`, :lookup:`istartswith`, :lookup:`endswith`,
     :lookup:`iendswith`, :lookup:`regex`, :lookup:`iregex`, :lookup:`lt`,
     :lookup:`lte`, :lookup:`gt`, and :lookup:`gte` lookups.
-
-To query for ``null`` in JSON data, use ``None`` as a value::
-
-    >>> Dog.objects.filter(data__owner=None)
-    <QuerySet [<Dog: Meg>]>
-
-To query for missing keys, use the ``isnull`` lookup::
-
-    >>> Dog.objects.create(name='Shep', data={'breed': 'collie'})
-    >>> Dog.objects.filter(data__owner__isnull=True)
-    <QuerySet [<Dog: Shep>]>
 
 .. warning::
 
@@ -957,24 +954,6 @@ contained in the top-level of the field. For example::
     >>> Dog.objects.filter(data__contains={'breed': 'collie'})
     <QuerySet [<Dog: Meg>]>
 
-.. note::
-
-    This lookup is only overridden on ``JSONField``. It is not overridden on
-    key, index, and path transforms.
-
-.. note::
-
-    On PostgreSQL, the implementation uses the SQL operator ``@>``. On MySQL
-    and MariaDB, it uses the SQL function ``JSON_CONTAINS``. On Oracle
-    Database, it uses the SQL function ``JSON_QUERY`` and ``JSON_VALUE``.
-    On SQLite, it uses the SQL function ``JSON_EXTRACT`` and ``JSON_TYPE``.
-
-.. admonition:: Oracle and SQLite users
-
-    Since Oracle Database and SQLite don't provide a built-in function to
-    support this lookup, the implementation is actually similar to key
-    lookups chained together with the SQL operator ``AND``.
-
 .. fieldlookup:: jsonfield.contained_by
 
 ``contained_by``
@@ -995,16 +974,9 @@ example::
     >>> Dog.objects.filter(data__contained_by={'breed': 'collie'})
     <QuerySet [<Dog: Fred>]>
 
-.. note::
+.. admonition:: Oracle and SQLite
 
-    On PostgreSQL, the implementation uses the SQL operator ``<@``. On MySQL
-    and MariaDB, it uses the SQL function ``JSON_CONTAINS`` like ``contains``
-    lookup but with the arguments switched.
-
-.. admonition:: Oracle and SQLite users
-
-    Due to the limitation on Oracle and SQLite database backends, this lookup
-    is not supported.
+    This lookup is not supported on Oracle and SQLite.
 
 .. fieldlookup:: jsonfield.has_key
 
@@ -1019,21 +991,6 @@ example::
 
     >>> Dog.objects.filter(data__has_key='owner')
     <QuerySet [<Dog: Meg>]>
-
-.. note::
-
-    On PostgreSQL, the implementation uses the SQL operator ``?``. On MySQL
-    and MariaDB, it uses the SQL function ``JSON_CONTAINS_PATH``. On Oracle
-    Database, it uses the SQL function ``JSON_EXISTS``. On SQLite, it uses
-    the SQL function ``JSON_TYPE``.
-
-.. admonition:: SQLite users
-
-    The implementation uses ``JSON_TYPE`` along with ``IS NOT NULL`` clause.
-    The function ``JSON_EXTRACT`` is not used because it also returns SQL
-    ``NULL`` for JSON value ``null``, which makes it impossible to
-    differentiate between a missing key and an existing key with a ``null``
-    value.
 
 .. fieldlookup:: jsonfield.has_any_keys
 
@@ -1050,13 +1007,6 @@ For example::
     >>> Dog.objects.filter(data__has_any_keys=['owner', 'breed'])
     <QuerySet [<Dog: Rufus>, <Dog: Meg>]>
 
-.. note::
-
-    On PostgreSQL, the implementation uses the SQL operator ``?|``. On all
-    other database backends, the implementation is similar to
-    :lookup:`contains <jsonfield.contains>` lookup and each key is joined
-    using the SQL ``OR`` operator.
-
 .. fieldlookup:: jsonfield.has_keys
 
 ``has_keys``
@@ -1070,13 +1020,6 @@ For example::
 
     >>> Dog.objects.filter(data__has_keys=['breed', 'owner'])
     <QuerySet [<Dog: Meg>]>
-
-.. note::
-
-    On PostgreSQL, the implementation uses the SQL operator ``?&``. On all
-    other database backends, the implementation is similar to
-    :lookup:`contains <jsonfield.contains>` lookup and each key is joined
-    using the SQL ``AND`` operator.
 
 .. _complex-lookups-with-q:
 

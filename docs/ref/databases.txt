@@ -788,21 +788,21 @@ iterator. Your code must handle this.
 Enabling JSON1 extension on SQLite
 ----------------------------------
 
-To use :class:`~django.db.models.JSONField` on SQLite, you need to enable JSON1
-extension on Python's :py:mod:`sqlite3` library. If the extension is not enabled
-on your installation, a system error will be raised
-("``<connection name> does not support JSONFields.``"). To check if the
-extension is enabled on your installation, you can do a query with one of the
-functions included in the extension, e.g. ``JSON()``. For example::
+To use :class:`~django.db.models.JSONField` on SQLite, you need to enable the
+JSON1 extension on Python's :py:mod:`sqlite3` library. If the extension is not
+enabled on your installation, a system error will be raised ("``<connection
+name> does not support JSONFields.``"). To check if the extension is enabled on
+your installation, you can do a query with one of the functions included in the
+extension, e.g. ``JSON()``. For example::
 
     >>> import sqlite3
     >>> conn = sqlite3.connect(':memory:')
     >>> c = conn.cursor()
     >>> c.execute("SELECT JSON('123');")
 
-If the query doesn't throw any errors, then the JSON1 extension should already
-be enabled. Otherwise, follow the instructions below according to your
-operating system to set it up correctly.
+If the query doesn't throw any errors, then the JSON1 extension is already be
+enabled. Otherwise, follow the instructions below according to your operating
+system to set it up correctly.
 
 Linux
 ~~~~~
