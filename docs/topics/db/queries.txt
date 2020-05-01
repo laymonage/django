@@ -974,9 +974,9 @@ example::
     >>> Dog.objects.filter(data__contained_by={'breed': 'collie'})
     <QuerySet [<Dog: Fred>]>
 
-.. admonition:: Oracle and SQLite
+.. admonition:: Oracle
 
-    This lookup is not supported on Oracle and SQLite.
+    ``contained_by`` is not supported on Oracle.
 
 .. fieldlookup:: jsonfield.has_key
 

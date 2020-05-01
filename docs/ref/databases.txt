@@ -800,7 +800,7 @@ extension, e.g. ``JSON()``. For example::
     >>> c = conn.cursor()
     >>> c.execute("SELECT JSON('123');")
 
-If the query doesn't throw any errors, then the JSON1 extension is already be
+If the query doesn't throw any errors, then the JSON1 extension is already
 enabled. Otherwise, follow the instructions below according to your operating
 system to set it up correctly.
 
@@ -817,40 +817,40 @@ your installation, then do the following:
 - Compile the source code using the ``-DSQLITE_ENABLE_JSON1`` flag to enable
   the JSON1 extension. For example:
 
-  .. code-block:: console
+  .. code-block:: bash
 
-      gcc -DSQLITE_ENABLE_JSON1 -c -fPIC sqlite3.c
+    gcc -DSQLITE_ENABLE_JSON1 -c -fPIC sqlite3.c
 
   To enable other extensions, see the `compilation instructions`_.
 - Create a shared library. For example:
 
-  .. code-block:: console
+  .. code-block:: bash
 
-      gcc -shared -o libsqlite3.so -fPIC sqlite3.o -ldl -lpthread
+    gcc -shared -o libsqlite3.so -fPIC sqlite3.o -ldl -lpthread
 
 - Place the resulting file (``libsqlite3.so``) in a desired directory, e.g.
   ``/usr/lib/sqlite3/``.
 - Set the ``LD_PRELOAD`` environment variable to use your compiled SQLite every
   time you run Django. For example:
 
-  .. code-block:: console
+  .. code-block:: bash
 
-      export LD_PRELOAD=/usr/lib/sqlite3/libsqlite3.so
+    export LD_PRELOAD=/usr/lib/sqlite3/libsqlite3.so
 
 - Now, the JSON1 extension should be ready to be used in Python and Django.
 
 .. _`SQLite amalgamation`: https://www.sqlite.org/download.html
 .. _`compilation instructions`: https://www.sqlite.org/howtocompile.html
 
-Mac
-~~~
+macOS
+~~~~~
 
-On Mac, follow the instructions for Linux above, but instead of setting the
+On macOS, follow the instructions for Linux above, but instead of setting the
 ``LD_PRELOAD`` environment variable, use ``DYLD_LIBRARY_PATH``. For example:
 
-  .. code-block:: console
+.. code-block:: bash
 
-      export DYLD_LIBRARY_PATH=/usr/lib/sqlite3
+    export DYLD_LIBRARY_PATH=/usr/lib/sqlite3
 
 Windows
 ~~~~~~~
