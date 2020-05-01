@@ -1218,6 +1218,13 @@ object between all model instances. There is a system check for this.
 
 To query ``JSONField`` in the database, see :ref:`querying-jsonfield`.
 
+.. admonition:: Indexing
+
+    :class:`~django.db.models.Index` and :attr:`.Field.db_index` both create a
+    B-tree index, which isn't particularly helpful when querying ``JSONField``.
+    On PostgreSQL only, you can use
+    :class:`~django.contrib.postgres.indexes.GinIndex` that is better suited.
+
 .. admonition:: PostgreSQL users
 
     PostgreSQL has two native JSON based data types: ``json`` and ``jsonb``.

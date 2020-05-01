@@ -16,8 +16,7 @@ Indexes such as :class:`~django.contrib.postgres.indexes.GinIndex` and
 :class:`~django.contrib.postgres.indexes.GistIndex` are better suited, though
 the index choice is dependent on the queries that you're using. Generally, GiST
 may be a good choice for the :ref:`range fields <range-fields>` and
-:class:`HStoreField`, and GIN may be helpful for :class:`ArrayField` and
-:class:`~django.db.models.JSONField`.
+:class:`HStoreField`, and GIN may be helpful for :class:`ArrayField`.
 
 ``ArrayField``
 ==============
