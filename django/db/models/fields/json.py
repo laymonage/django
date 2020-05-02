@@ -242,10 +242,10 @@ class HasKey(HasKeyLookup):
 
 
 @JSONField.register_lookup
-class HasAnyKeys(HasKeyLookup):
-    lookup_name = 'has_any_keys'
-    postgres_operator = '?|'
-    logical_operator = ' OR '
+class HasKeys(HasKeyLookup):
+    lookup_name = 'has_keys'
+    postgres_operator = '?&'
+    logical_operator = ' AND '
 
     def get_prep_lookup(self):
         return [
@@ -255,10 +255,10 @@ class HasAnyKeys(HasKeyLookup):
 
 
 @JSONField.register_lookup
-class HasKeys(HasAnyKeys):
-    lookup_name = 'has_keys'
-    postgres_operator = '?&'
-    logical_operator = ' AND '
+class HasAnyKeys(HasKeys):
+    lookup_name = 'has_any_keys'
+    postgres_operator = '?|'
+    logical_operator = ' OR '
 
 
 @JSONField.register_lookup
