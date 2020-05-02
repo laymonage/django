@@ -408,6 +408,24 @@ class TestQuerying(TestCase):
                     [self.objs[7]],
                 )
 
+    def test_has_keys_varying_levels(self):
+        tests = [
+            Q(value__has_keys=[
+                'a',
+                KeyTransform('f', KeyTransform(1, KeyTransform('d', 'value'))),
+            ]),
+            Q(value__has_keys=[
+                KeyTransform('a', 'value'),
+                KeyTransform('l', KeyTransform('k', 'value')),
+            ]),
+        ]
+        for condition in tests:
+            with self.subTest(condition=condition):
+                self.assertSequenceEqual(
+                    NullableJSONModel.objects.filter(condition),
+                    [self.objs[4]],
+                )
+
     def test_has_any_keys(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__has_any_keys=['c', 'l']),
@@ -428,6 +446,24 @@ class TestQuerying(TestCase):
                 self.assertSequenceEqual(
                     NullableJSONModel.objects.filter(condition),
                     [self.objs[7], obj],
+                )
+
+    def test_has_any_keys_varying_levels(self):
+        tests = [
+            Q(value__has_any_keys=[
+                'baz',
+                KeyTransform('f', KeyTransform(1, KeyTransform('d', 'value'))),
+            ]),
+            Q(value__has_any_keys=[
+                KeyTransform(0, KeyTransform('bar', 'value')),
+                KeyTransform('l', KeyTransform('k', 'value')),
+            ]),
+        ]
+        for condition in tests:
+            with self.subTest(condition=condition):
+                self.assertSequenceEqual(
+                    NullableJSONModel.objects.filter(condition),
+                    [self.objs[4], self.objs[7]],
                 )
 
     def test_contains(self):
