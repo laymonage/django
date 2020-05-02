@@ -355,6 +355,24 @@ class TestQuerying(TestCase):
             [self.objs[4]],
         )
 
+    def test_has_key_deep(self):
+        tests = [
+            (Q(value__baz__has_key='a'), self.objs[7]),
+            (Q(value__has_key=KeyTransform('a', KeyTransform('baz', 'value'))), self.objs[7]),
+            (Q(value__has_key=KeyTransform('c', KeyTransform('baz', 'value'))), self.objs[7]),
+            (Q(value__d__1__has_key='f'), self.objs[4]),
+            (
+                Q(value__has_key=KeyTransform('f', KeyTransform('1', KeyTransform('d', 'value')))),
+                self.objs[4]
+            )
+        ]
+        for test in tests:
+            with self.subTest(condition=test[0]):
+                self.assertSequenceEqual(
+                    NullableJSONModel.objects.filter(test[0]),
+                    [test[1]],
+                )
+
     def test_has_key_list(self):
         obj = NullableJSONModel.objects.create(value=[{'a': 1}, {'b': 'x'}])
         tests = [
