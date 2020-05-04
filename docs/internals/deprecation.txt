@@ -83,8 +83,10 @@ details on these changes.
 
 * ``django.conf.urls.url()`` will be removed.
 
-* ``django.contrib.postgres.fields.JSONField``,
-  ``django.contrib.postgres.forms.JSONField``,
+* The model ``django.contrib.postgres.fields.JSONField`` will be removed. A
+  stub field will remain for compatibility with historical migrations.
+
+* ``django.contrib.postgres.forms.JSONField``,
   ``django.contrib.postgres.fields.jsonb.KeyTransform``, and
   ``django.contrib.postgres.fields.jsonb.KeyTextTransform`` will be removed.
 

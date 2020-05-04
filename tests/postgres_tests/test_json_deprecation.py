@@ -19,8 +19,9 @@ class DeprecationTests(PostgreSQLSimpleTestCase):
 
         self.assertEqual(PostgreSQLJSONModel().check(), [
             DjangoWarning(
-                'django.contrib.postgres.fields.JSONField is deprecated and '
-                'will be removed in Django 4.0.',
+                'django.contrib.postgres.fields.JSONField is deprecated. '
+                'Support for it (except in historical migrations) will be '
+                'removed in Django 4.0.',
                 hint='Use django.db.models.JSONField instead.',
                 obj=PostgreSQLJSONModel._meta.get_field('field'),
                 id='fields.W904',
