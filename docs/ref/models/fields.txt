@@ -1182,18 +1182,21 @@ values are stored as null.
 
 .. versionadded:: 3.1
 
-A field for storing JSON encoded data. In Python the data is represented in
-its Python native format: dictionaries, lists, strings, numbers, booleans
-and ``None``.
+A field for storing JSON encoded data. In Python the data is represented in its
+Python native format: dictionaries, lists, strings, numbers, booleans and
+``None``.
+
+``JSONField`` is supported on MariaDB 10.2.7+, MySQL 5.7.8+, Oracle,
+PostgreSQL, and SQLite 3.9.0+ (with the `JSON1 extension`_ enabled).
 
 .. attribute:: JSONField.encoder
 
     An optional :py:class:`json.JSONEncoder` subclass to serialize data types
-    not supported by the standard JSON serializer (``datetime``, ``uuid``,
-    etc.). For example, you can use the
+    not supported by the standard JSON serializer (``datetime.datetime``,
+    :class:`~python:uuid.UUID`, etc.). For example, you can use the
     :class:`~django.core.serializers.json.DjangoJSONEncoder` class.
 
-    If ``None`` is specified, it defaults to ``json.JSONEncoder``.
+    Defaults to ``json.JSONEncoder``.
 
 .. attribute:: JSONField.decoder
 
@@ -1205,16 +1208,13 @@ and ``None``.
     string that just happened to be in the same format chosen for
     ``datetime``\s.
 
-    If ``None`` is specified, it defaults to ``json.JSONDecoder``.
+    Defaults to ``json.JSONDecoder``.
 
-Specification for :py:class:`~json.JSONEncoder` and :py:class:`~json.JSONDecoder`
-subclasses can be found in the Python documentation.
-
-If you give the field a :attr:`~django.db.models.Field.default`, ensure
-it's an immutable object, such as a ``str``, or a callable object that returns
-a fresh mutable object each time, such as ``dict`` or a function. Providing a
-mutable default object like ``default={}`` or ``default=[]`` shares the one
-object between all model instances. There is a system check for this.
+If you give the field a :attr:`~django.db.models.Field.default`, ensure it's an
+immutable object, such as a ``str``, or a callable object that returns a fresh
+mutable object each time, such as ``dict`` or a function. Providing a mutable
+default object like ``default={}`` or ``default=[]`` shares the one object
+between all model instances.
 
 To query ``JSONField`` in the database, see :ref:`querying-jsonfield`.
 
@@ -1235,26 +1235,13 @@ To query ``JSONField`` in the database, see :ref:`querying-jsonfield`.
     of the JSON which allows indexing. The trade-off is a small additional cost
     on writing to the ``jsonb`` field. ``JSONField`` uses ``jsonb``.
 
-.. admonition:: MariaDB users
-
-    Requires MariaDB 10.2.7 or later.
-
-.. admonition:: MySQL users
-
-    Requires MySQL 5.7.8 or later.
-
 .. admonition:: Oracle users
 
     Oracle Database does not support storing JSON scalar values. Only JSON
     objects and arrays (represented in Python using :py:class:`dict` and
     :py:class:`list`) are supported.
 
-.. admonition:: SQLite users
-
-    Requires SQLite 3.9.0 or later with the JSON1_ extension enabled. See
-    :ref:`sqlite-json1` for more details.
-
-.. _JSON1: https://www.sqlite.org/json1.html
+.. _JSON1 extension: https://www.sqlite.org/json1.html
 
 ``NullBooleanField``
 --------------------
