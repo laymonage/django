@@ -165,20 +165,20 @@ class TestSaveLoad(TestCase):
         sql_null = NullableJSONModel.objects.create(value=None)
         sql_null.refresh_from_db()
 
-        # They are different in the database ('null' vs NULL).
+        # 'null' is not equal to NULL in the database.
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value=Value('null')),
-            [json_null]
+            [json_null],
         )
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value=None),
-            [json_null]
+            [json_null],
         )
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__isnull=True),
-            [sql_null]
+            [sql_null],
         )
-        # They are equal in Python (None).
+        # 'null' is equal to NULL in Python (None).
         self.assertEqual(json_null.value, sql_null.value)
 
     @skipUnlessDBFeature('supports_primitives_in_json_field')
@@ -195,8 +195,6 @@ class TestSaveLoad(TestCase):
                 obj = JSONModel(value=value)
                 obj.save()
                 obj.refresh_from_db()
-                if value == Value('null'):
-                    value = None
                 self.assertEqual(obj.value, value)
 
     def test_dict(self):
@@ -622,7 +620,7 @@ class TestQuerying(TestCase):
                 with self.assertRaises(DatabaseError):
                     query.exists()
             else:
-                self.assertFalse(query.exists())
+                self.assertIs(query.exists(), False)
         if connection.vendor == 'postgresql':
             self.assertIn(
                 """."value" -> 'test'' = ''"a"'') OR 1 = 1 OR (''d') = '"x"' """,
@@ -661,6 +659,6 @@ class TestQuerying(TestCase):
             )
         for lookup, value in tests:
             with self.subTest(lookup=lookup):
-                self.assertTrue(NullableJSONModel.objects.filter(
+                self.assertIs(NullableJSONModel.objects.filter(
                     **{lookup: value},
-                ).exists())
+                ).exists(), True)
