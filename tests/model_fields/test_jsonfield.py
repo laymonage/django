@@ -23,6 +23,8 @@ from django.test.utils import CaptureQueriesContext, isolate_apps
 
 from .models import CustomJSONDecoder, JSONModel, NullableJSONModel
 
+mariadb = connection.vendor == 'mysql' and connection.mysql_is_mariadb
+
 
 @skipUnlessDBFeature('supports_json_field')
 class JSONFieldTests(TestCase):
@@ -342,6 +344,7 @@ class TestQuerying(TestCase):
                 NullableJSONModel.objects.create(value=value)
                 for value in cls.primitives
             ])
+        cls.raw_sql = '%s::jsonb' if connection.vendor == 'postgresql' else '%s'
 
     def test_exact(self):
         self.assertSequenceEqual(
@@ -370,11 +373,11 @@ class TestQuerying(TestCase):
             NullableJSONModel.objects.create(value={'ord': -100291029, 'name': 'eggs'}),
         ]
         query = NullableJSONModel.objects.filter(value__name__isnull=False).order_by('value__ord')
-        if connection.vendor == 'mysql' and connection.mysql_is_mariadb or connection.vendor == 'oracle':
-            # MariaDB and Oracle use string representation of the JSON values to sort the objects.
-            self.assertSequenceEqual(query, [objs[2], objs[4], objs[3], objs[1], objs[0]])
-        else:
-            self.assertSequenceEqual(query, [objs[4], objs[2], objs[3], objs[1], objs[0]])
+        expected = [objs[4], objs[2], objs[3], objs[1], objs[0]]
+        if mariadb or connection.vendor == 'oracle':
+            # MariaDB and Oracle return JSON values as strings.
+            expected = [objs[2], objs[4], objs[3], objs[1], objs[0]]
+        self.assertSequenceEqual(query, expected)
 
     def test_ordering_grouping_by_key_transform(self):
         base_qs = NullableJSONModel.objects.filter(value__d__0__isnull=False)
@@ -384,19 +387,61 @@ class TestQuerying(TestCase):
         ):
             self.assertSequenceEqual(qs, [self.objs[4]])
         qs = NullableJSONModel.objects.filter(value__isnull=False)
-        if connection.vendor != 'oracle':
-            # Oracle doesn't support direct COUNT on LOB fields.
-            self.assertQuerysetEqual(
-                qs.values('value__d__0').annotate(count=Count('value__d__0')).order_by('count'),
-                [1, 11],
-                operator.itemgetter('count'),
-            )
         self.assertQuerysetEqual(
             qs.filter(value__isnull=False).annotate(
                 key=KeyTextTransform('f', KeyTransform('1', KeyTransform('d', 'value'))),
             ).values('key').annotate(count=Count('key')).order_by('count'),
             [(None, 0), ('g', 1)],
             operator.itemgetter('key', 'count'),
+        )
+
+    @skipIf(connection.vendor == 'oracle', "Oracle doesn't grouping by LOBs, see #24096.")
+    def test_ordering_grouping_by_count(self):
+        qs = NullableJSONModel.objects.filter(
+            value__isnull=False,
+        ).values('value__d__0').annotate(count=Count('value__d__0')).order_by('count')
+        self.assertQuerysetEqual(qs, [1, 11], operator.itemgetter('count'))
+
+    def test_key_transform_raw_expression(self):
+        expr = RawSQL(self.raw_sql, ['{"x": "bar"}'])
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__foo=KeyTransform('x', expr)),
+            [self.objs[7]],
+        )
+
+    def test_nested_key_transform_raw_expression(self):
+        expr = RawSQL(self.raw_sql, ['{"x": {"y": "bar"}}'])
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__foo=KeyTransform('y', KeyTransform('x', expr))),
+            [self.objs[7]],
+        )
+
+    def test_key_transform_expression(self):
+        if mariadb or connection.vendor == 'oracle':
+            expr = 'key'
+        else:
+            expr = Cast('key', models.JSONField())
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__d__0__isnull=False).annotate(
+                key=KeyTransform('d', 'value'),
+                chain=KeyTransform('0', 'key'),
+                expr=KeyTransform('0', expr),
+            ).filter(chain=F('expr')),
+            [self.objs[4]],
+        )
+
+    def test_nested_key_transform_expression(self):
+        if mariadb or connection.vendor == 'oracle':
+            expr = 'key'
+        else:
+            expr = Cast('key', models.JSONField())
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__d__0__isnull=False).annotate(
+                key=KeyTransform('d', 'value'),
+                chain=KeyTransform('f', KeyTransform('1', 'key')),
+                expr=KeyTransform('f', KeyTransform('1', expr)),
+            ).filter(chain=F('expr')),
+            [self.objs[4]],
         )
 
     def test_has_key(self):
@@ -494,54 +539,6 @@ class TestQuerying(TestCase):
         with self.assertRaisesMessage(NotSupportedError, msg):
             NullableJSONModel.objects.filter(value__contained_by={'a': 'b'}).get()
 
-    def test_key_transform_raw_expression(self):
-        if connection.vendor == 'postgresql':
-            expr = RawSQL('%s::jsonb', ['{"x": "bar"}'])
-        else:
-            expr = RawSQL('%s', ['{"x": "bar"}'])
-        self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(value__foo=KeyTransform('x', expr)),
-            [self.objs[7]],
-        )
-
-    def test_key_transform_expression(self):
-        if connection.vendor == 'oracle' or connection.vendor == 'mysql' and connection.mysql_is_mariadb:
-            expr = 'key'
-        else:
-            expr = Cast('key', models.JSONField())
-        self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(value__d__0__isnull=False).annotate(
-                key=KeyTransform('d', 'value'),
-                chain=KeyTransform('0', 'key'),
-                expr=KeyTransform('0', expr),
-            ).filter(chain=F('expr')),
-            [self.objs[4]],
-        )
-
-    def test_nested_key_transform_raw_expression(self):
-        if connection.vendor == 'postgresql':
-            expr = RawSQL('%s::jsonb', ['{"x": {"y": "bar"}}'])
-        else:
-            expr = RawSQL('%s', ['{"x": {"y": "bar"}}'])
-        self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(value__foo=KeyTransform('y', KeyTransform('x', expr))),
-            [self.objs[7]],
-        )
-
-    def test_nested_key_transform_expression(self):
-        if connection.vendor == 'oracle' or connection.vendor == 'mysql' and connection.mysql_is_mariadb:
-            expr = 'key'
-        else:
-            expr = Cast('key', models.JSONField())
-        self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(value__d__0__isnull=False).annotate(
-                key=KeyTransform('d', 'value'),
-                chain=KeyTransform('f', KeyTransform('1', 'key')),
-                expr=KeyTransform('f', KeyTransform('1', expr)),
-            ).filter(chain=F('expr')),
-            [self.objs[4]],
-        )
-
     def test_deep_values(self):
         qs = NullableJSONModel.objects.values_list('value__k__l')
         expected_objs = [(None,)] * len(self.objs)
@@ -557,19 +554,29 @@ class TestQuerying(TestCase):
         # key__isnull=False works the same as has_key='key'.
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__a__isnull=True),
-            self.objs[:3] + self.objs[5:]
+            self.objs[:3] + self.objs[5:],
         )
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__a__isnull=False),
-            [self.objs[3], self.objs[4]]
+            [self.objs[3], self.objs[4]],
         )
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__j__isnull=False),
-            [self.objs[4]]
+            [self.objs[4]],
+        )
+
+    def test_isnull_key_or_none(self):
+        obj = NullableJSONModel.objects.create(value={'a': None})
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(Q(value__a__isnull=True) | Q(value__a=None)),
+            self.objs[:3] + self.objs[5:] + [obj],
         )
 
     def test_none_key(self):
-        self.assertSequenceEqual(NullableJSONModel.objects.filter(value__j=None), [self.objs[4]])
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__j=None),
+            [self.objs[4]],
+        )
 
     def test_none_key_exclude(self):
         obj = NullableJSONModel.objects.create(value={'j': 1})
@@ -582,13 +589,6 @@ class TestQuerying(TestCase):
             )
         else:
             self.assertSequenceEqual(NullableJSONModel.objects.exclude(value__j=None), [obj])
-
-    def test_isnull_key_or_none(self):
-        obj = NullableJSONModel.objects.create(value={'a': None})
-        self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(Q(value__a__isnull=True) | Q(value__a=None)),
-            self.objs[:3] + self.objs[5:] + [obj]
-        )
 
     def test_shallow_list_lookup(self):
         self.assertSequenceEqual(
