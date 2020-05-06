@@ -23,8 +23,6 @@ from django.test.utils import CaptureQueriesContext
 
 from .models import CustomJSONDecoder, JSONModel, NullableJSONModel
 
-mariadb = connection.vendor == 'mysql' and connection.mysql_is_mariadb
-
 
 @skipUnlessDBFeature('supports_json_field')
 class JSONFieldTests(TestCase):
@@ -308,6 +306,7 @@ class TestQuerying(TestCase):
         ]
         query = NullableJSONModel.objects.filter(value__name__isnull=False).order_by('value__ord')
         expected = [objs[4], objs[2], objs[3], objs[1], objs[0]]
+        mariadb = connection.vendor == 'mysql' and connection.mysql_is_mariadb
         if mariadb or connection.vendor == 'oracle':
             # MariaDB and Oracle return JSON values as strings.
             expected = [objs[2], objs[4], objs[3], objs[1], objs[0]]
@@ -351,29 +350,21 @@ class TestQuerying(TestCase):
         )
 
     def test_key_transform_expression(self):
-        if mariadb:
-            expr = 'key'
-        else:
-            expr = Cast('key', models.JSONField())
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__d__0__isnull=False).annotate(
                 key=KeyTransform('d', 'value'),
                 chain=KeyTransform('0', 'key'),
-                expr=KeyTransform('0', expr),
+                expr=KeyTransform('0', Cast('key', models.JSONField())),
             ).filter(chain=F('expr')),
             [self.objs[4]],
         )
 
     def test_nested_key_transform_expression(self):
-        if mariadb:
-            expr = 'key'
-        else:
-            expr = Cast('key', models.JSONField())
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__d__0__isnull=False).annotate(
                 key=KeyTransform('d', 'value'),
                 chain=KeyTransform('f', KeyTransform('1', 'key')),
-                expr=KeyTransform('f', KeyTransform('1', expr)),
+                expr=KeyTransform('f', KeyTransform('1', Cast('key', models.JSONField()))),
             ).filter(chain=F('expr')),
             [self.objs[4]],
         )
