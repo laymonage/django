@@ -395,7 +395,7 @@ class TestQuerying(TestCase):
             operator.itemgetter('key', 'count'),
         )
 
-    @skipIf(connection.vendor == 'oracle', "Oracle doesn't grouping by LOBs, see #24096.")
+    @skipIf(connection.vendor == 'oracle', "Oracle doesn't support grouping by LOBs, see #24096.")
     def test_ordering_grouping_by_count(self):
         qs = NullableJSONModel.objects.filter(
             value__isnull=False,
@@ -464,7 +464,7 @@ class TestQuerying(TestCase):
             (Q(value__d__1__has_key='f'), self.objs[4]),
             (
                 Q(value__has_key=KeyTransform('f', KeyTransform('1', KeyTransform('d', 'value')))),
-                self.objs[4]
+                self.objs[4],
             )
         ]
         for condition, expected in tests:
@@ -593,13 +593,13 @@ class TestQuerying(TestCase):
     def test_shallow_list_lookup(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__0=1),
-            [self.objs[5]]
+            [self.objs[5]],
         )
 
     def test_shallow_obj_lookup(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__a='b'),
-            [self.objs[3], self.objs[4]]
+            [self.objs[3], self.objs[4]],
         )
 
     def test_obj_subquery_lookup(self):

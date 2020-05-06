@@ -270,7 +270,7 @@ class JSONExact(lookups.Exact):
         rhs, rhs_params = super().process_rhs(compiler, connection)
         # Treat None lookup values as null.
         if rhs == '%s' and rhs_params == [None]:
-            rhs, rhs_params = ('%s', ['null'])
+            rhs_params = ['null']
         if connection.vendor == 'mysql':
             func = ["JSON_EXTRACT(%s, '$')" for value in rhs_params]
             rhs = rhs % tuple(func)
