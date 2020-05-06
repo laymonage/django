@@ -248,10 +248,7 @@ class HasKeys(HasKeyLookup):
     logical_operator = ' AND '
 
     def get_prep_lookup(self):
-        return [
-            str(item) if not isinstance(item, KeyTransform) else item
-            for item in self.rhs
-        ]
+        return [str(item) for item in self.rhs]
 
 
 @JSONField.register_lookup

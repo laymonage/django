@@ -393,78 +393,11 @@ class TestQuerying(TestCase):
             [self.objs[4]],
         )
 
-    def test_has_keys_deep(self):
-        tests = [
-            Q(value__baz__has_keys=['a', 'c']),
-            Q(value__has_keys=[
-                KeyTransform('a', KeyTransform('baz', 'value')),
-                KeyTransform('c', KeyTransform('baz', 'value'))
-            ]),
-        ]
-        for condition in tests:
-            with self.subTest(condition=condition):
-                self.assertSequenceEqual(
-                    NullableJSONModel.objects.filter(condition),
-                    [self.objs[7]],
-                )
-
-    def test_has_keys_varying_levels(self):
-        tests = [
-            Q(value__has_keys=[
-                'a',
-                KeyTransform('f', KeyTransform(1, KeyTransform('d', 'value'))),
-            ]),
-            Q(value__has_keys=[
-                KeyTransform('a', 'value'),
-                KeyTransform('l', KeyTransform('k', 'value')),
-            ]),
-        ]
-        for condition in tests:
-            with self.subTest(condition=condition):
-                self.assertSequenceEqual(
-                    NullableJSONModel.objects.filter(condition),
-                    [self.objs[4]],
-                )
-
     def test_has_any_keys(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__has_any_keys=['c', 'l']),
             [self.objs[3], self.objs[4], self.objs[6]],
         )
-
-    def test_has_any_keys_deep(self):
-        obj = NullableJSONModel.objects.create(value={'baz': {'a': 'x', 'd': 'z'}})
-        tests = [
-            Q(value__baz__has_any_keys=['c', 'd']),
-            Q(value__has_any_keys=[
-                KeyTransform('c', KeyTransform('baz', 'value')),
-                KeyTransform('d', KeyTransform('baz', 'value'))
-            ]),
-        ]
-        for condition in tests:
-            with self.subTest(condition=condition):
-                self.assertSequenceEqual(
-                    NullableJSONModel.objects.filter(condition),
-                    [self.objs[7], obj],
-                )
-
-    def test_has_any_keys_varying_levels(self):
-        tests = [
-            Q(value__has_any_keys=[
-                'baz',
-                KeyTransform('f', KeyTransform(1, KeyTransform('d', 'value'))),
-            ]),
-            Q(value__has_any_keys=[
-                KeyTransform(0, KeyTransform('bar', 'value')),
-                KeyTransform('l', KeyTransform('k', 'value')),
-            ]),
-        ]
-        for condition in tests:
-            with self.subTest(condition=condition):
-                self.assertSequenceEqual(
-                    NullableJSONModel.objects.filter(condition),
-                    [self.objs[4], self.objs[7]],
-                )
 
     def test_contains(self):
         tests = [
