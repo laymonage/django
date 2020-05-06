@@ -343,6 +343,62 @@ class TestQuerying(TestCase):
                 for value in cls.primitives
             ])
 
+    def test_exact(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__exact={}),
+            [self.objs[2]],
+        )
+
+    def test_exact_complex(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__exact={'a': 'b', 'c': 14}),
+            [self.objs[3]],
+        )
+
+    def test_isnull(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(value__isnull=True),
+            [self.objs[0]],
+        )
+
+    def test_ordering_by_transform(self):
+        objs = [
+            NullableJSONModel.objects.create(value={'ord': 93, 'name': 'bar'}),
+            NullableJSONModel.objects.create(value={'ord': 22.1, 'name': 'foo'}),
+            NullableJSONModel.objects.create(value={'ord': -1, 'name': 'baz'}),
+            NullableJSONModel.objects.create(value={'ord': 21.931902, 'name': 'spam'}),
+            NullableJSONModel.objects.create(value={'ord': -100291029, 'name': 'eggs'}),
+        ]
+        query = NullableJSONModel.objects.filter(value__name__isnull=False).order_by('value__ord')
+        if connection.vendor == 'mysql' and connection.mysql_is_mariadb or connection.vendor == 'oracle':
+            # MariaDB and Oracle use string representation of the JSON values to sort the objects.
+            self.assertSequenceEqual(query, [objs[2], objs[4], objs[3], objs[1], objs[0]])
+        else:
+            self.assertSequenceEqual(query, [objs[4], objs[2], objs[3], objs[1], objs[0]])
+
+    def test_ordering_grouping_by_key_transform(self):
+        base_qs = NullableJSONModel.objects.filter(value__d__0__isnull=False)
+        for qs in (
+            base_qs.order_by('value__d__0'),
+            base_qs.annotate(key=KeyTransform('0', KeyTransform('d', 'value'))).order_by('key'),
+        ):
+            self.assertSequenceEqual(qs, [self.objs[4]])
+        qs = NullableJSONModel.objects.filter(value__isnull=False)
+        if connection.vendor != 'oracle':
+            # Oracle doesn't support direct COUNT on LOB fields.
+            self.assertQuerysetEqual(
+                qs.values('value__d__0').annotate(count=Count('value__d__0')).order_by('count'),
+                [1, 11],
+                operator.itemgetter('count'),
+            )
+        self.assertQuerysetEqual(
+            qs.filter(value__isnull=False).annotate(
+                key=KeyTextTransform('f', KeyTransform('1', KeyTransform('d', 'value'))),
+            ).values('key').annotate(count=Count('key')).order_by('count'),
+            [(None, 0), ('g', 1)],
+            operator.itemgetter('key', 'count'),
+        )
+
     def test_has_key(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__has_key='a'),
@@ -366,11 +422,11 @@ class TestQuerying(TestCase):
                 self.objs[4]
             )
         ]
-        for test in tests:
-            with self.subTest(condition=test[0]):
+        for condition, expected in tests:
+            with self.subTest(condition=condition):
                 self.assertSequenceEqual(
-                    NullableJSONModel.objects.filter(test[0]),
-                    [test[1]],
+                    NullableJSONModel.objects.filter(condition),
+                    [expected],
                 )
 
     def test_has_key_list(self):
@@ -437,62 +493,6 @@ class TestQuerying(TestCase):
         msg = 'contained_by lookup is not supported on Oracle.'
         with self.assertRaisesMessage(NotSupportedError, msg):
             NullableJSONModel.objects.filter(value__contained_by={'a': 'b'}).get()
-
-    def test_exact(self):
-        self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(value__exact={}),
-            [self.objs[2]]
-        )
-
-    def test_exact_complex(self):
-        self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(value__exact={'a': 'b', 'c': 14}),
-            [self.objs[3]]
-        )
-
-    def test_isnull(self):
-        self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(value__isnull=True),
-            [self.objs[0]]
-        )
-
-    def test_ordering_by_transform(self):
-        objs = [
-            NullableJSONModel.objects.create(value={'ord': 93, 'name': 'bar'}),
-            NullableJSONModel.objects.create(value={'ord': 22.1, 'name': 'foo'}),
-            NullableJSONModel.objects.create(value={'ord': -1, 'name': 'baz'}),
-            NullableJSONModel.objects.create(value={'ord': 21.931902, 'name': 'spam'}),
-            NullableJSONModel.objects.create(value={'ord': -100291029, 'name': 'eggs'}),
-        ]
-        query = NullableJSONModel.objects.filter(value__name__isnull=False).order_by('value__ord')
-        if connection.vendor == 'mysql' and connection.mysql_is_mariadb or connection.vendor == 'oracle':
-            # MariaDB and Oracle use string representation of the JSON values to sort the objects.
-            self.assertSequenceEqual(query, [objs[2], objs[4], objs[3], objs[1], objs[0]])
-        else:
-            self.assertSequenceEqual(query, [objs[4], objs[2], objs[3], objs[1], objs[0]])
-
-    def test_ordering_grouping_by_key_transform(self):
-        base_qs = NullableJSONModel.objects.filter(value__d__0__isnull=False)
-        for qs in (
-            base_qs.order_by('value__d__0'),
-            base_qs.annotate(key=KeyTransform('0', KeyTransform('d', 'value'))).order_by('key'),
-        ):
-            self.assertSequenceEqual(qs, [self.objs[4]])
-        qs = NullableJSONModel.objects.filter(value__isnull=False)
-        if connection.vendor != 'oracle':
-            # Oracle doesn't support direct COUNT on LOB fields.
-            self.assertQuerysetEqual(
-                qs.values('value__d__0').annotate(count=Count('value__d__0')).order_by('count'),
-                [1, 11],
-                operator.itemgetter('count'),
-            )
-        self.assertQuerysetEqual(
-            qs.filter(value__isnull=False).annotate(
-                key=KeyTextTransform('f', KeyTransform('1', KeyTransform('d', 'value'))),
-            ).values('key').annotate(count=Count('key')).order_by('count'),
-            [(None, 0), ('g', 1)],
-            operator.itemgetter('key', 'count'),
-        )
 
     def test_key_transform_raw_expression(self):
         if connection.vendor == 'postgresql':
@@ -611,70 +611,73 @@ class TestQuerying(TestCase):
     def test_deep_lookup_objs(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__k__l='m'),
-            [self.objs[4]]
+            [self.objs[4]],
         )
 
     def test_shallow_lookup_obj_target(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__k={'l': 'm'}),
-            [self.objs[4]]
+            [self.objs[4]],
         )
 
     def test_deep_lookup_array(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__1__0=2),
-            [self.objs[5]]
+            [self.objs[5]],
         )
 
     def test_deep_lookup_mixed(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__d__1__f='g'),
-            [self.objs[4]]
+            [self.objs[4]],
         )
 
     def test_deep_lookup_transform(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__c__gt=2),
-            [self.objs[3], self.objs[4]]
+            [self.objs[3], self.objs[4]],
         )
         self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(value__c__lt=5),
-            []
+            NullableJSONModel.objects.filter(value__c__gt=2.33),
+            [self.objs[3], self.objs[4]],
         )
+        self.assertIs(NullableJSONModel.objects.filter(value__c__lt=5).exists(), False)
 
     def test_usage_in_subquery(self):
         self.assertSequenceEqual(
-            NullableJSONModel.objects.filter(id__in=NullableJSONModel.objects.filter(value__c=14)),
-            self.objs[3:5]
+            NullableJSONModel.objects.filter(
+                id__in=NullableJSONModel.objects.filter(value__c=14),
+            ),
+            self.objs[3:5],
         )
 
-    def test_iexact(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__iexact='BaR').exists())
-        self.assertFalse(NullableJSONModel.objects.filter(value__foo__iexact='"BaR"').exists())
+    def test_key_iexact(self):
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__iexact='BaR').exists(), True)
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__iexact='"BaR"').exists(), False)
 
     def test_key_contains(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__contains='ar').exists())
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__contains='ar').exists(), True)
 
-    def test_icontains(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__icontains='A').exists())
+    def test_key_icontains(self):
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__icontains='Ar').exists(), True)
 
-    def test_startswith(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__startswith='b').exists())
+    def test_key_startswith(self):
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__startswith='b').exists(), True)
 
-    def test_istartswith(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__istartswith='B').exists())
+    def test_key_istartswith(self):
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__istartswith='B').exists(), True)
 
-    def test_endswith(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__endswith='r').exists())
+    def test_key_endswith(self):
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__endswith='r').exists(), True)
 
-    def test_iendswith(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__iendswith='R').exists())
+    def test_key_iendswith(self):
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__iendswith='R').exists(), True)
 
-    def test_regex(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__regex=r'^bar$').exists())
+    def test_key_regex(self):
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__regex=r'^bar$').exists(), True)
 
-    def test_iregex(self):
-        self.assertTrue(NullableJSONModel.objects.filter(value__foo__iregex=r'^bAr$').exists())
+    def test_key_iregex(self):
+        self.assertIs(NullableJSONModel.objects.filter(value__foo__iregex=r'^bAr$').exists(), True)
 
     def test_key_sql_injection(self):
         with CaptureQueriesContext(connection) as queries:

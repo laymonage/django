@@ -135,7 +135,6 @@ def compile_json_path(key_transforms, include_root=True):
     return ''.join(path)
 
 
-@JSONField.register_lookup
 class DataContains(PostgresOperatorLookup):
     lookup_name = 'contains'
     postgres_operator = '@>'
@@ -167,7 +166,6 @@ class DataContains(PostgresOperatorLookup):
         return sql % (lhs, '', json.dumps({'value': rhs})), params
 
 
-@JSONField.register_lookup
 class ContainedBy(PostgresOperatorLookup):
     lookup_name = 'contained_by'
     postgres_operator = '<@'
@@ -234,14 +232,12 @@ class HasKeyLookup(PostgresOperatorLookup):
         return self.as_sql(compiler, connection, template='JSON_TYPE(%s, %%s) IS NOT NULL')
 
 
-@JSONField.register_lookup
 class HasKey(HasKeyLookup):
     lookup_name = 'has_key'
     postgres_operator = '?'
     prepare_rhs = False
 
 
-@JSONField.register_lookup
 class HasKeys(HasKeyLookup):
     lookup_name = 'has_keys'
     postgres_operator = '?&'
@@ -251,14 +247,12 @@ class HasKeys(HasKeyLookup):
         return [str(item) for item in self.rhs]
 
 
-@JSONField.register_lookup
 class HasAnyKeys(HasKeys):
     lookup_name = 'has_any_keys'
     postgres_operator = '?|'
     logical_operator = ' OR '
 
 
-@JSONField.register_lookup
 class JSONExact(lookups.Exact):
     can_use_none_as_rhs = True
 
@@ -281,6 +275,14 @@ class JSONExact(lookups.Exact):
             func = ["JSON_EXTRACT(%s, '$')" for value in rhs_params]
             rhs = rhs % tuple(func)
         return rhs, rhs_params
+
+
+JSONField.register_lookup(DataContains)
+JSONField.register_lookup(ContainedBy)
+JSONField.register_lookup(HasKey)
+JSONField.register_lookup(HasKeys)
+JSONField.register_lookup(HasAnyKeys)
+JSONField.register_lookup(JSONExact)
 
 
 class KeyTransform(Transform):
@@ -353,14 +355,6 @@ class KeyTransformTextLookupMixin:
         super().__init__(key_text_transform, *args, **kwargs)
 
 
-class KeyTransformNumericLookupMixin:
-    def process_rhs(self, compiler, connection):
-        rhs, rhs_params = super().process_rhs(compiler, connection)
-        if connection.vendor != 'postgresql':
-            rhs_params = [json.loads(value) for value in rhs_params]
-        return rhs, rhs_params
-
-
 class CaseInsensitiveMixin:
     """
     Mixin to allow case-insensitive comparison of JSON values on MySQL.
@@ -380,7 +374,6 @@ class CaseInsensitiveMixin:
         return rhs, rhs_params
 
 
-@KeyTransform.register_lookup
 class KeyTransformIsNull(lookups.IsNull):
     def as_oracle(self, compiler, connection):
         if isinstance(self.lhs, KeyTransform):
@@ -408,7 +401,6 @@ class KeyTransformIsNull(lookups.IsNull):
             return 'JSON_TYPE(%s, %%s) IS NOT NULL' % prev_lhs, lhs_params
 
 
-@KeyTransform.register_lookup
 class KeyTransformExact(JSONExact):
     def process_lhs(self, compiler, connection):
         lhs, lhs_params = super().process_lhs(compiler, connection)
@@ -460,69 +452,82 @@ class KeyTransformExact(JSONExact):
             return super().as_sql(compiler, connection)
 
 
-@KeyTransform.register_lookup
 class KeyTransformIExact(CaseInsensitiveMixin, KeyTransformTextLookupMixin, lookups.IExact):
     pass
 
 
-@KeyTransform.register_lookup
 class KeyTransformIContains(CaseInsensitiveMixin, KeyTransformTextLookupMixin, lookups.IContains):
     pass
 
 
-@KeyTransform.register_lookup
 class KeyTransformContains(KeyTransformTextLookupMixin, lookups.Contains):
     pass
 
 
-@KeyTransform.register_lookup
 class KeyTransformStartsWith(KeyTransformTextLookupMixin, lookups.StartsWith):
     pass
 
 
-@KeyTransform.register_lookup
 class KeyTransformIStartsWith(CaseInsensitiveMixin, KeyTransformTextLookupMixin, lookups.IStartsWith):
     pass
 
 
-@KeyTransform.register_lookup
 class KeyTransformEndsWith(KeyTransformTextLookupMixin, lookups.EndsWith):
     pass
 
 
-@KeyTransform.register_lookup
 class KeyTransformIEndsWith(CaseInsensitiveMixin, KeyTransformTextLookupMixin, lookups.IEndsWith):
     pass
 
 
-@KeyTransform.register_lookup
 class KeyTransformRegex(KeyTransformTextLookupMixin, lookups.Regex):
     pass
 
 
-@KeyTransform.register_lookup
 class KeyTransformIRegex(CaseInsensitiveMixin, KeyTransformTextLookupMixin, lookups.IRegex):
     pass
 
 
-@KeyTransform.register_lookup
-class KeyTransformLte(KeyTransformNumericLookupMixin, lookups.LessThanOrEqual):
-    pass
+class KeyTransformNumericLookupMixin:
+    def process_rhs(self, compiler, connection):
+        rhs, rhs_params = super().process_rhs(compiler, connection)
+        if not connection.features.has_native_json_field:
+            rhs_params = [json.loads(value) for value in rhs_params]
+        return rhs, rhs_params
 
 
-@KeyTransform.register_lookup
 class KeyTransformLt(KeyTransformNumericLookupMixin, lookups.LessThan):
     pass
 
 
-@KeyTransform.register_lookup
+class KeyTransformLte(KeyTransformNumericLookupMixin, lookups.LessThanOrEqual):
+    pass
+
+
+class KeyTransformGt(KeyTransformNumericLookupMixin, lookups.GreaterThan):
+    pass
+
+
 class KeyTransformGte(KeyTransformNumericLookupMixin, lookups.GreaterThanOrEqual):
     pass
 
 
-@KeyTransform.register_lookup
-class KeyTransformGt(KeyTransformNumericLookupMixin, lookups.GreaterThan):
-    pass
+KeyTransform.register_lookup(KeyTransformExact)
+KeyTransform.register_lookup(KeyTransformIExact)
+KeyTransform.register_lookup(KeyTransformIsNull)
+KeyTransform.register_lookup(KeyTransformContains)
+KeyTransform.register_lookup(KeyTransformIContains)
+KeyTransform.register_lookup(KeyTransformStartsWith)
+KeyTransform.register_lookup(KeyTransformIStartsWith)
+KeyTransform.register_lookup(KeyTransformEndsWith)
+KeyTransform.register_lookup(KeyTransformIEndsWith)
+KeyTransform.register_lookup(KeyTransformRegex)
+KeyTransform.register_lookup(KeyTransformIRegex)
+
+KeyTransform.register_lookup(KeyTransformLt)
+KeyTransform.register_lookup(KeyTransformLte)
+KeyTransform.register_lookup(KeyTransformGt)
+KeyTransform.register_lookup(KeyTransformGte)
 
 
 class KeyTransformFactory:
