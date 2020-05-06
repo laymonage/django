@@ -376,10 +376,7 @@ class CaseInsensitiveMixin:
 
 class KeyTransformIsNull(lookups.IsNull):
     def as_oracle(self, compiler, connection):
-        if isinstance(self.lhs, KeyTransform):
-            prev_lhs, prev_params, key_transforms = self.lhs.preprocess_lhs(compiler, connection)
-        else:
-            prev_lhs, prev_params, key_transforms = *compiler.compile(self.lhs), []
+        prev_lhs, prev_params, key_transforms = self.lhs.preprocess_lhs(compiler, connection)
         json_path = compile_json_path(key_transforms)
         if self.rhs:
             return (
@@ -390,11 +387,8 @@ class KeyTransformIsNull(lookups.IsNull):
             return "JSON_EXISTS(%s, '%s')" % (prev_lhs, json_path), prev_params
 
     def as_sqlite(self, compiler, connection):
-        lhs, lhs_params = super().process_lhs(compiler, connection)
-        if isinstance(self.lhs, KeyTransform):
-            prev_lhs, prev_params = self.lhs.preprocess_lhs(compiler, connection, lhs_only=True)
-        else:
-            prev_lhs, prev_params = compiler.compile(self.lhs)
+        _, lhs_params = super().process_lhs(compiler, connection)
+        prev_lhs, _ = self.lhs.preprocess_lhs(compiler, connection, lhs_only=True)
         if self.rhs:
             return 'JSON_TYPE(%s, %%s) IS NULL' % prev_lhs, lhs_params
         else:
@@ -407,10 +401,7 @@ class KeyTransformExact(JSONExact):
         if connection.vendor == 'sqlite':
             rhs, rhs_params = super().process_rhs(compiler, connection)
             if rhs == '%s' and rhs_params == ['null']:
-                if isinstance(self.lhs, KeyTransform):
-                    lhs, params = self.lhs.preprocess_lhs(compiler, connection, lhs_only=True)
-                else:
-                    lhs, params = compiler.compile(self.lhs)
+                lhs, _ = self.lhs.preprocess_lhs(compiler, connection, lhs_only=True)
                 lhs = 'JSON_TYPE(%s, %%s)' % lhs
         return lhs, lhs_params
 
@@ -441,10 +432,7 @@ class KeyTransformExact(JSONExact):
         rhs, rhs_params = super().process_rhs(compiler, connection)
         if rhs_params == ['null']:
             lhs, lhs_params = self.process_lhs(compiler, connection)
-            if isinstance(self.lhs, KeyTransform):
-                prev_lhs, _, key_transforms = self.lhs.preprocess_lhs(compiler, connection)
-            else:
-                prev_lhs, _, key_transforms = *compiler.compile(self.lhs), []
+            prev_lhs, _, key_transforms = self.lhs.preprocess_lhs(compiler, connection)
             json_path = compile_json_path(key_transforms)
             sql = "(JSON_EXISTS(%s, '%s') AND %s IS NULL)" % (prev_lhs, json_path, lhs)
             return sql, []
