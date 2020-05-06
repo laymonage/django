@@ -351,7 +351,7 @@ class TestQuerying(TestCase):
         )
 
     def test_key_transform_expression(self):
-        if mariadb or connection.vendor == 'oracle':
+        if mariadb:
             expr = 'key'
         else:
             expr = Cast('key', models.JSONField())
@@ -365,7 +365,7 @@ class TestQuerying(TestCase):
         )
 
     def test_nested_key_transform_expression(self):
-        if mariadb or connection.vendor == 'oracle':
+        if mariadb:
             expr = 'key'
         else:
             expr = Cast('key', models.JSONField())
