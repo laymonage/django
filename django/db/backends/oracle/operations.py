@@ -269,7 +269,7 @@ END;
         return tuple(columns)
 
     def field_cast_sql(self, db_type, internal_type):
-        if db_type and db_type.endswith('LOB'):
+        if db_type and db_type.endswith('LOB') and internal_type != 'JSONField':
             return "DBMS_LOB.SUBSTR(%s)"
         else:
             return "%s"
@@ -307,6 +307,8 @@ END;
     def lookup_cast(self, lookup_type, internal_type=None):
         if lookup_type in ('iexact', 'icontains', 'istartswith', 'iendswith'):
             return "UPPER(%s)"
+        if internal_type == 'JSONField' and lookup_type == 'exact':
+            return 'DBMS_LOB.SUBSTR(%s)'
         return "%s"
 
     def max_in_list_size(self):
