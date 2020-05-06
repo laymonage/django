@@ -1192,8 +1192,8 @@ PostgreSQL, and SQLite 3.9.0+ (with the `JSON1 extension`_ enabled).
 .. attribute:: JSONField.encoder
 
     An optional :py:class:`json.JSONEncoder` subclass to serialize data types
-    not supported by the standard JSON serializer (``datetime.datetime``,
-    :class:`~python:uuid.UUID`, etc.). For example, you can use the
+    not supported by the standard JSON serializer (e.g. ``datetime.datetime``
+    or :class:`~python:uuid.UUID`). For example, you can use the
     :class:`~django.core.serializers.json.DjangoJSONEncoder` class.
 
     Defaults to ``json.JSONEncoder``.
