@@ -1361,6 +1361,27 @@ class JSONFieldTests(TestCase):
 
         self.assertEqual(Model.check(databases=self.databases), [])
 
+    def test_check_jsonfield(self):
+        class Model(models.Model):
+            field = models.JSONField()
+
+        error = Error(
+            '%s does not support JSONFields.' % connection.display_name,
+            obj=Model,
+            id='fields.E180',
+        )
+        expected = [] if connection.features.supports_json_field else [error]
+        self.assertEqual(Model.check(databases=self.databases), expected)
+
+    def test_check_jsonfield_required_db_features(self):
+        class Model(models.Model):
+            field = models.JSONField()
+
+            class Meta:
+                required_db_features = {'supports_json_field'}
+
+        self.assertEqual(Model.check(databases=self.databases), [])
+
 
 @isolate_apps('invalid_models_tests')
 class ConstraintsTests(TestCase):

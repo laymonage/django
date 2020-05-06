@@ -3,7 +3,7 @@ import uuid
 from unittest import mock, skipIf, skipUnless
 
 from django import forms
-from django.core import checks, serializers
+from django.core import serializers
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import (
@@ -19,7 +19,7 @@ from django.db.models.fields.json import (
 from django.db.models.functions import Cast
 from django.db.utils import DatabaseError
 from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
-from django.test.utils import CaptureQueriesContext, isolate_apps
+from django.test.utils import CaptureQueriesContext
 
 from .models import CustomJSONDecoder, JSONModel, NullableJSONModel
 
@@ -120,24 +120,6 @@ class TestFormField(SimpleTestCase):
         form_field = model_field.formfield()
         self.assertIs(form_field.encoder, DjangoJSONEncoder)
         self.assertIs(form_field.decoder, CustomJSONDecoder)
-
-
-class TestDatabaseChecks(TestCase):
-    @isolate_apps('model_fields')
-    def test_check_databases(self):
-        class Model(models.Model):
-            field = models.JSONField()
-
-        error = checks.Error(
-            '%s does not support JSONFields.' % connection.display_name,
-            obj=Model,
-            id='fields.E180',
-        )
-        expected = [] if connection.features.supports_json_field else [error]
-        self.assertEqual(Model.check(databases=self.databases), expected)
-
-    def test_required_db_features(self):
-        self.assertEqual(JSONModel.check(databases=self.databases), [])
 
 
 class TestSerialization(SimpleTestCase):
