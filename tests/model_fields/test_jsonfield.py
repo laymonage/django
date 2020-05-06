@@ -713,13 +713,12 @@ class TestQuerying(TestCase):
         )
         # contained_by lookup is not supported on Oracle.
         if connection.vendor != 'oracle':
-            sql = '%s::jsonb' if connection.vendor == 'postgresql' else '%s'
             tests += (
                 ('value__baz__contained_by', {'a': 'b', 'c': 'd', 'e': 'f'}),
                 (
                     'value__contained_by',
                     KeyTransform('x', RawSQL(
-                        sql,
+                        self.raw_sql,
                         ['{"x": {"a": "b", "c": 1, "d": "e"}}'],
                     )),
                 ),
