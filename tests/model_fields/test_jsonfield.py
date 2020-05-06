@@ -122,52 +122,6 @@ class TestFormField(SimpleTestCase):
         self.assertIs(form_field.decoder, CustomJSONDecoder)
 
 
-@isolate_apps('model_fields')
-@skipUnlessDBFeature('supports_json_field')
-class TestChecks(TestCase):
-    def test_invalid_default(self):
-        class MyModel(models.Model):
-            field = models.JSONField(default={})
-
-        model = MyModel()
-        self.assertEqual(model.check(), [
-            checks.Warning(
-                msg=(
-                    "JSONField default should be a callable instead of an "
-                    "instance so that it's not shared between all field "
-                    "instances."
-                ),
-                hint='Use a callable instead, e.g., use `dict` instead of `{}`.',
-                obj=MyModel._meta.get_field('field'),
-                id='fields.E010',
-            )
-        ])
-
-    def test_valid_default(self):
-        class MyModel(models.Model):
-            field = models.JSONField(default=dict)
-
-        model = MyModel()
-        self.assertEqual(model.check(), [])
-
-    def test_valid_default_none(self):
-        class MyModel(models.Model):
-            field = models.JSONField(default=None)
-
-        model = MyModel()
-        self.assertEqual(model.check(), [])
-
-    def test_valid_callable_default(self):
-        def callable_default():
-            return {'it': 'works'}
-
-        class MyModel(models.Model):
-            field = models.JSONField(default=callable_default)
-
-        model = MyModel()
-        self.assertEqual(model.check(), [])
-
-
 class TestDatabaseChecks(TestCase):
     @isolate_apps('model_fields')
     def test_check_databases(self):
