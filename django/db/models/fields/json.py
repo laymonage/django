@@ -147,7 +147,7 @@ class DataContains(PostgresOperatorLookup):
 
     def as_oracle(self, compiler, connection):
         if isinstance(self.rhs, KeyTransform):
-            return HasKeyLookup(self.lhs, self.rhs).as_oracle(compiler, connection)
+            return HasKey(self.lhs, self.rhs).as_oracle(compiler, connection)
         lhs, lhs_params = self.process_lhs(compiler, connection)
         params = tuple(lhs_params)
         sql = (
@@ -378,24 +378,21 @@ class CaseInsensitiveMixin:
 
 
 class KeyTransformIsNull(lookups.IsNull):
+    # key__isnull=False is the same as has_key='key'
     def as_oracle(self, compiler, connection):
+        if not self.rhs:
+            return HasKey(self.lhs.lhs, self.lhs.key_name).as_oracle(compiler, connection)
         prev_lhs, prev_params, key_transforms = self.lhs.preprocess_lhs(compiler, connection)
         json_path = compile_json_path(key_transforms)
-        if self.rhs:
-            return (
-                "(NOT JSON_EXISTS(%s, '%s') OR %s IS NULL)" % (prev_lhs, json_path, prev_lhs),
-                prev_params
-            )
-        else:
-            return "JSON_EXISTS(%s, '%s')" % (prev_lhs, json_path), prev_params
+        return (
+            "(NOT JSON_EXISTS(%s, '%s') OR %s IS NULL)" % (prev_lhs, json_path, prev_lhs),
+            prev_params
+        )
 
     def as_sqlite(self, compiler, connection):
-        _, lhs_params = super().process_lhs(compiler, connection)
-        prev_lhs, _ = self.lhs.preprocess_lhs(compiler, connection, lhs_only=True)
-        if self.rhs:
-            return 'JSON_TYPE(%s, %%s) IS NULL' % prev_lhs, lhs_params
-        else:
-            return 'JSON_TYPE(%s, %%s) IS NOT NULL' % prev_lhs, lhs_params
+        if not self.rhs:
+            return HasKey(self.lhs.lhs, self.lhs.key_name).as_sqlite(compiler, connection)
+        return super().as_sql(compiler, connection)
 
 
 class KeyTransformExact(JSONExact):
