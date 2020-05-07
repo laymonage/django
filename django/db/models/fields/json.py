@@ -315,7 +315,10 @@ class KeyTransform(Transform):
     def as_oracle(self, compiler, connection):
         lhs, params, key_transforms = self.preprocess_lhs(compiler, connection)
         json_path = compile_json_path(key_transforms)
-        return "COALESCE(JSON_QUERY(%s, '%s'), JSON_VALUE(%s, '%s'))" % ((lhs, json_path) * 2), tuple(params)
+        return (
+            "COALESCE(JSON_QUERY(%s, '%s'), JSON_VALUE(%s, '%s'))" %
+            ((lhs, json_path) * 2)
+        ), tuple(params) * 2
 
     def as_postgresql(self, compiler, connection):
         lhs, params, key_transforms = self.preprocess_lhs(compiler, connection)
@@ -407,12 +410,8 @@ class KeyTransformExact(JSONExact):
 
     def process_rhs(self, compiler, connection):
         if isinstance(self.rhs, KeyTransform):
-            rhs, rhs_params = super(lookups.Exact, self).process_rhs(compiler, connection)
-            if connection.vendor == 'oracle':
-                rhs_params *= 2
-            return rhs, rhs_params
-        else:
-            rhs, rhs_params = super().process_rhs(compiler, connection)
+            return super(lookups.Exact, self).process_rhs(compiler, connection)
+        rhs, rhs_params = super().process_rhs(compiler, connection)
         if connection.vendor == 'oracle':
             func = []
             for value in rhs_params:
