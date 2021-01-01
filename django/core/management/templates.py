@@ -54,6 +54,12 @@ class TemplateCommand(BaseCommand):
             help='The file name(s) to render. Separate multiple file names '
                  'with commas, or use -n multiple times.'
         )
+        parser.add_argument(
+            '--exclude', '-x', dest='exclusions',
+            action='append', default=[],
+            help='The directory name(s) to exclude. Separate multiple directory names '
+                 'with commas, or use -x multiple times.'
+        )
 
     def handle(self, app_or_project, name, target=None, **options):
         self.app_or_project = app_or_project
@@ -81,9 +87,13 @@ class TemplateCommand(BaseCommand):
                                    "exist, please create it first." % top_dir)
 
         extensions = tuple(handle_extensions(options['extensions']))
-        extra_files = []
-        for file in options['files']:
-            extra_files.extend(map(lambda x: x.strip(), file.split(',')))
+        extra_files = [
+            x.strip() for file in options['files'] for x in file.split(',')
+        ]
+        exclusions = [
+            x.strip() for dir in options['exclusions'] for x in dir.split(',')
+        ]
+        exclusions += ['.git', '__pycache__']
         if self.verbosity >= 2:
             self.stdout.write(
                 'Rendering %s template files with extensions: %s'
@@ -126,7 +136,7 @@ class TemplateCommand(BaseCommand):
                 os.makedirs(target_dir, exist_ok=True)
 
             for dirname in dirs[:]:
-                if dirname.startswith('.') or dirname == '__pycache__':
+                if dirname in exclusions:
                     dirs.remove(dirname)
 
             for filename in files:
