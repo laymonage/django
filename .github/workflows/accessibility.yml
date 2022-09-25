@@ -1,0 +1,59 @@
+name: Accessibility
+
+on:
+  pull_request:
+    branches:
+      - main
+  # TODO: Remove these triggers when they are no longer needed.
+  push:
+  workflow_dispatch:
+
+jobs:
+  accessibility:
+    name: Pa11y CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Django core
+        uses: actions/checkout@v5
+      - name: Checkout Django admin demo
+        uses: actions/checkout@v5
+        with:
+          repository: knyghty/django-admin-demo
+          ref: a58fa374767a1904dbf0e45e9cc0df1cd2692838
+          path: demo
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: "demo/requirements.txt"
+      - name: Install requirements
+        run: pip install -r demo/requirements.txt
+      - name: Run migrations
+        run: python demo/manage.py migrate
+      - name: Start development server in the background
+        run: python demo/manage.py runserver &
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+      - name: Install Pa11y CI
+        run: npm install -g pa11y-ci
+      - name: Configure Chromium
+        # Ubuntu 23+ requires AppArmor configuration for dev Chromium to run
+        # https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
+        run: |
+          export CHROMIUM_BUILD_PATH=/@{HOME}/.cache/puppeteer/**/**/**
+          cat | sudo tee /etc/apparmor.d/chrome-dev-builds <<EOF
+          abi <abi/4.0>,
+          include <tunables/global>
+
+          profile chrome $CHROMIUM_BUILD_PATH flags=(unconfined) {
+            userns,
+            include if exists <local/chrome>
+          }
+          EOF
+          sudo service apparmor reload
+      - name: Run Pa11y CI
+        run: pa11y-ci
+        # TODO: Remove this when the errors are fixed.
+        continue-on-error: true
