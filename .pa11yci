@@ -1,0 +1,22 @@
+{
+    "defaults": {
+        "timeout": 10000
+    },
+    "urls": [
+        {
+            "url": "http://127.0.0.1:8000/en/admin/login/",
+            "actions": [
+                "wait for element #login-form to be visible",
+                "set field #id_username to admin",
+                "set field #id_password to correcthorsebatterystaple",
+                "click element input[type=submit]",
+                "wait for url to be http://127.0.0.1:8000/en/admin/"
+            ]
+        },
+        "http://127.0.0.1:8000/en/admin/",
+        "http://127.0.0.1:8000/en/admin/demo/artist/",
+        "http://127.0.0.1:8000/en/admin/demo/artist/7zX2wRWDKLiW2V5QlI4QXU/change/",
+        "http://127.0.0.1:8000/en/admin/demo/release/",
+        "http://127.0.0.1:8000/en/admin/demo/release/7xxg6PunBVeuTliClh4H5p/change/"
+    ]
+}
