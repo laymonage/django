@@ -636,6 +636,45 @@ class TestQuerying(TestCase):
                     [obj],
                 )
 
+    def test_has_key_special_chars(self):
+        value = {
+            "CONTROL": [],
+            "single'": [],
+            'double"': [
+                connection.features.supports_double_quotes_in_json_field_lookups,
+            ],
+            "dollar$": [],
+            "dot.dot": [],
+            "with space": [],
+            "back\\slash": [],
+            "question?mark": [],
+            "user@name": [],
+            "emo🤡'ji": [],
+            "com,ma": [],
+            "curly{{{brace}}}s": [],
+            "escape\uffff'sequence": [],
+            "m\\i@x. m🤡'a,t{{{ch}}}e?d$\"'es\uffff'cape": [
+                connection.features.supports_double_quotes_in_json_field_lookups,
+            ],
+        }
+        obj = NullableJSONModel.objects.create(value=value)
+        obj.refresh_from_db()
+        self.assertEqual(obj.value, value)
+
+        for key, supported_features in value.items():
+            lookups = {
+                "has_key": Q(value__has_key=key),
+                "has_keys": Q(value__has_keys=[key, "CONTROL"]),
+                "has_any_keys": Q(value__has_any_keys=[key, "does_not_exist"]),
+            }
+            for lookup, condition in lookups.items():
+                results = NullableJSONModel.objects.filter(condition)
+                with self.subTest(key=key, lookup=lookup):
+                    if all(supported_features):
+                        self.assertSequenceEqual(results, [obj])
+                    else:
+                        self.assertSequenceEqual(results, [])
+
     @skipUnlessDBFeature("supports_json_field_contains")
     def test_contains(self):
         tests = [

@@ -147,6 +147,9 @@ class DatabaseFeatures(BaseDatabaseFeatures):
 
     can_introspect_json_field = property(operator.attrgetter("supports_json_field"))
     has_json_object_function = property(operator.attrgetter("supports_json_field"))
+    # SQLite doesn't parse escaped double quotes in the JSON path notation,
+    # so it cannot match keys that contains double quotes (#35842).
+    supports_double_quotes_in_json_field_lookups = False
 
     @cached_property
     def can_return_columns_from_insert(self):
