@@ -197,27 +197,33 @@ jobs:
         run: |
           python -Wall runtests.py --verbosity 2 --noinput --selenium=chrome --headless --settings=test_postgres --parallel 2
 
-  sqlite-latest:
+  sqlite:
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["3.31.0", "latest"]
     runs-on: ubuntu-latest
-    name: SQLite latest
+    name: SQLite Versions
     steps:
       - name: Checkout SQLite
         uses: actions/checkout@v4
         with:
           repository: 'sqlite/sqlite'
-          ref: 'release'
+          ref: ${{ matrix.version == 'latest' && 'release' || format('version-{0}', matrix.version) }}
       - name: Restore SQLite cache
         id: cache-sqlite-restore
         uses: actions/cache/restore@v4
         with:
           path: /tmp/sqlite3-libs
-          key: ${{ hashFiles('VERSION') }}
+          key: sqlite-${{ matrix.version }}-${{ hashFiles('VERSION') }}
       - name: Build SQLite
         if: steps.cache-sqlite-restore.outputs.cache-hit != 'true'
         run: |
           ./configure
           make
           cp -r .libs /tmp/sqlite3-libs
+        env:
+          CFLAGS: ${{ matrix.version == '3.31.0' && '-DSQLITE_ENABLE_DESERIALIZE=1' || '' }}
       - name: Save SQLite cache
         id: cache-sqlite-save
         uses: actions/cache/save@v4
